@@ -1,18 +1,75 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import '../../constants/app_colors.dart';
 import '../../models/relief_area_model.dart';
 import '../../models/user_model.dart';
+import '../../services/location_service.dart';
 import '../../widgets/common_widgets.dart';
 
-class CitizenHomeScreen extends StatelessWidget {
+class CitizenHomeScreen extends StatefulWidget {
   final UserModel user;
   final void Function(ReliefAreaModel? area)? onNavigateToMap;
+  final void Function(AreaCategory? category)? onNavigateToMapWithFilter;
+  final void Function(LatLng? location)? onSafeReport;
 
   const CitizenHomeScreen({
     super.key,
     required this.user,
     this.onNavigateToMap,
+    this.onNavigateToMapWithFilter,
+    this.onSafeReport,
   });
+
+  @override
+  State<CitizenHomeScreen> createState() => _CitizenHomeScreenState();
+}
+
+class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
+  AreaCategory? _selectedCategory;
+  bool _isReportingSafe = false;
+  bool _hasReportedSafe = false;
+
+  List<ReliefAreaModel> get _visibleAreas => ReliefAreaModel.demoAreas
+      .where(
+        (area) =>
+            _selectedCategory == null || area.category == _selectedCategory,
+      )
+      .toList();
+
+  Future<void> _reportSafe() async {
+    setState(() {
+      _isReportingSafe = true;
+    });
+
+    LatLng? location;
+    String? locationError;
+    try {
+      location = await LocationService.getCurrentLocation();
+    } on LocationServiceException catch (error) {
+      locationError = error.message;
+    } catch (error) {
+      locationError = 'GPS konumu alınamadı: $error';
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isReportingSafe = false;
+      _hasReportedSafe = true;
+    });
+    widget.onSafeReport?.call(location);
+
+    final message = location == null
+        ? 'Güvendeyim bildirimi oluşturuldu. $locationError'
+        : 'Güvendeyim bildirimi GPS konumunuzla haritada gösteriliyor.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: location == null
+            ? AppColors.warning
+            : AppColors.success,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +104,7 @@ class CitizenHomeScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Merhaba, ${user.name}',
+                        'Merhaba, ${widget.user.name}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -56,14 +113,21 @@ class CitizenHomeScreen extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
                         'Vatandaş Portalı',
-                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -71,7 +135,11 @@ class CitizenHomeScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 const Text(
                   'Güvende misiniz? Yardıma ihtiyacınız olduğunda butona basarak AI destekli afet merkezine bildirimde bulunabilirsiniz.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -86,9 +154,14 @@ class CitizenHomeScreen extends StatelessWidget {
                           foregroundColor: AppColors.primaryBlue,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        icon: const Icon(Icons.sos_rounded, color: AppColors.emergencyRed),
+                        icon: const Icon(
+                          Icons.sos_rounded,
+                          color: AppColors.emergencyRed,
+                        ),
                         label: const Text(
                           'YARDIM İSTE',
                           style: TextStyle(fontWeight: FontWeight.w800),
@@ -98,17 +171,32 @@ class CitizenHomeScreen extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {
-                          _showAiAssistantModal(context);
-                        },
+                        onPressed: _isReportingSafe ? null : _reportSafe,
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Colors.white54),
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        icon: const Icon(Icons.auto_awesome_rounded, color: Colors.amberAccent, size: 18),
-                        label: const Text('Meta AI Asistan'),
+                        icon: _isReportingSafe
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Icon(
+                                _hasReportedSafe
+                                    ? Icons.verified_user_rounded
+                                    : Icons.health_and_safety_rounded,
+                                color: Colors.lightGreenAccent,
+                                size: 18,
+                              ),
+                        label: const Text('GÜVENDEYİM'),
                       ),
                     ),
                   ],
@@ -121,8 +209,8 @@ class CitizenHomeScreen extends StatelessWidget {
           // Big Banner: "Nereye Gitmeli? Haritada Gör"
           InkWell(
             onTap: () {
-              if (onNavigateToMap != null) {
-                onNavigateToMap!(ReliefAreaModel.demoAreas.first);
+              if (widget.onNavigateToMap != null) {
+                widget.onNavigateToMap!(ReliefAreaModel.demoAreas.first);
               }
             },
             borderRadius: BorderRadius.circular(18),
@@ -131,7 +219,10 @@ class CitizenHomeScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.3), width: 1.5),
+                border: Border.all(
+                  color: AppColors.primaryBlue.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.primaryBlue.withValues(alpha: 0.08),
@@ -148,7 +239,11 @@ class CitizenHomeScreen extends StatelessWidget {
                       color: AppColors.primaryBlue.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.map_rounded, color: AppColors.primaryBlue, size: 26),
+                    child: const Icon(
+                      Icons.map_rounded,
+                      color: AppColors.primaryBlue,
+                      size: 26,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -157,17 +252,28 @@ class CitizenHomeScreen extends StatelessWidget {
                       children: const [
                         Text(
                           'Nereye Gitmeli? (Harita & Rota)',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textPrimary),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                         SizedBox(height: 2),
                         Text(
                           'Canlı haritada toplanma alanlarını ve yol tariflerini görün.',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppColors.primaryBlue),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: AppColors.primaryBlue,
+                  ),
                 ],
               ),
             ),
@@ -180,21 +286,46 @@ class CitizenHomeScreen extends StatelessWidget {
             children: [
               const Text(
                 'Yakın Toplanma Alanları',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
               ),
               TextButton(
                 onPressed: () {
-                  if (onNavigateToMap != null) {
-                    onNavigateToMap!(null);
+                  if (widget.onNavigateToMapWithFilter != null) {
+                    widget.onNavigateToMapWithFilter!(_selectedCategory);
+                  } else if (widget.onNavigateToMap != null) {
+                    widget.onNavigateToMap!(null);
                   }
                 },
-                child: const Text('Haritada Aç', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                child: const Text(
+                  'Haritada Aç',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 6),
 
-          ...ReliefAreaModel.demoAreas.take(3).map((area) {
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _areaFilterChip(null),
+                ...AreaCategory.values.map(
+                  (category) => Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: _areaFilterChip(category),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          ..._visibleAreas.take(3).map((area) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 10.0),
               child: _buildAreaCard(context, area),
@@ -202,6 +333,28 @@ class CitizenHomeScreen extends StatelessWidget {
           }),
         ],
       ),
+    );
+  }
+
+  Widget _areaFilterChip(AreaCategory? category) {
+    final isSelected = _selectedCategory == category;
+    final color = category?.color ?? AppColors.primaryBlue;
+    return FilterChip(
+      selected: isSelected,
+      label: Text(category?.title ?? 'Tümü'),
+      avatar: Icon(category?.icon ?? Icons.dashboard_rounded, size: 16),
+      selectedColor: color.withValues(alpha: 0.16),
+      checkmarkColor: color,
+      labelStyle: TextStyle(
+        color: isSelected ? color : AppColors.textPrimary,
+        fontWeight: FontWeight.w700,
+        fontSize: 12,
+      ),
+      onSelected: (_) {
+        setState(() {
+          _selectedCategory = category;
+        });
+      },
     );
   }
 
@@ -223,18 +376,28 @@ class CitizenHomeScreen extends StatelessWidget {
                 Expanded(
                   child: Text(
                     area.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: area.category.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     area.category.title,
-                    style: TextStyle(color: area.category.color, fontWeight: FontWeight.w700, fontSize: 11),
+                    style: TextStyle(
+                      color: area.category.color,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ],
@@ -242,7 +405,10 @@ class CitizenHomeScreen extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               area.address,
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 8),
             Row(
@@ -250,11 +416,18 @@ class CitizenHomeScreen extends StatelessWidget {
               children: [
                 Text(
                   'Kapasite: ${area.occupancy} / ${area.capacity} Kişi',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 Text(
                   'Boş Kontenjan: ${area.availableSpots}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.success,
+                  ),
                 ),
               ],
             ),
@@ -263,17 +436,22 @@ class CitizenHomeScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  if (onNavigateToMap != null) {
-                    onNavigateToMap!(area);
+                  if (widget.onNavigateToMap != null) {
+                    widget.onNavigateToMap!(area);
                   }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBlue,
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 icon: const Icon(Icons.navigation_rounded, size: 16),
-                label: const Text('Haritada Rotayı Çiz & Buraya Git', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                label: const Text(
+                  'Haritada Rotayı Çiz & Buraya Git',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                ),
               ),
             ),
           ],
@@ -287,18 +465,31 @@ class CitizenHomeScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: const [
-                Icon(Icons.report_problem_rounded, color: AppColors.emergencyRed),
+                Icon(
+                  Icons.report_problem_rounded,
+                  color: AppColors.emergencyRed,
+                ),
                 SizedBox(width: 8),
-                Text('Acil Yardım Talebi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                Text(
+                  'Acil Yardım Talebi',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -311,7 +502,8 @@ class CitizenHomeScreen extends StatelessWidget {
               controller: textCtrl,
               maxLines: 3,
               decoration: const InputDecoration(
-                hintText: 'Örn: Binamızın önünde su ve bebek mamasına acil ihtiyaç var, 3 aileyiz...',
+                hintText:
+                    'Örn: Binamızın önünde su ve bebek mamasına acil ihtiyaç var, 3 aileyiz...',
               ),
             ),
             const SizedBox(height: 16),
@@ -322,58 +514,10 @@ class CitizenHomeScreen extends StatelessWidget {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Yardım talebiniz Meta AI (classifyReport) ile acil olarak kriz merkezine iletildi!'),
+                    content: Text(
+                      'Yardım talebiniz Meta AI (classifyReport) ile acil olarak kriz merkezine iletildi!',
+                    ),
                     backgroundColor: AppColors.success,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAiAssistantModal(BuildContext context) {
-    final queryCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: const [
-                Icon(Icons.auto_awesome, color: AppColors.primaryBlue),
-                SizedBox(width: 8),
-                Text('Meta Llama Afet Asistanı', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Afet rehberleri ve resmi AFAD/Kızılay kılavuzlarından kaynaklı cevaplar üretir.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: queryCtrl,
-              decoration: const InputDecoration(
-                hintText: 'Sorunuzu yazın (örn. Deprem anında ne yapmalıyım?)',
-              ),
-            ),
-            const SizedBox(height: 16),
-            CustomPrimaryButton(
-              text: 'Asistana Sor (askAssistant)',
-              onPressed: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Meta Llama Asistanı: Doğalgaz ve elektriği ana vanadan kapatıp toplanma alanına geçiniz.'),
-                    backgroundColor: AppColors.primaryBlue,
                   ),
                 );
               },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import '../../constants/app_colors.dart';
 import '../../models/relief_area_model.dart';
 import '../../models/user_model.dart';
@@ -21,14 +22,115 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   final _authService = AuthService();
-  int _currentIndex = 0; // 0: Harita, 1: AI Triage, 2: Llama Asistan, 3: Panel & Profil
+  int _currentIndex = 0;
+  UserRole? _lastRole;
   ReliefAreaModel? _selectedMapArea;
+  AreaCategory? _selectedMapCategory;
+  LatLng? _safeReportLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastRole = _authService.currentUser?.role;
+    _authService.addListener(_handleAuthChanged);
+  }
+
+  @override
+  void dispose() {
+    _authService.removeListener(_handleAuthChanged);
+    super.dispose();
+  }
+
+  void _handleAuthChanged() {
+    final role = _authService.currentUser?.role;
+    if (role == _lastRole) return;
+
+    _lastRole = role;
+    if (!mounted) return;
+    setState(() {
+      _currentIndex = 0;
+      _selectedMapArea = null;
+      _selectedMapCategory = null;
+      _safeReportLocation = null;
+    });
+  }
 
   void _navigateToMapWithArea(ReliefAreaModel? area) {
     setState(() {
       _selectedMapArea = area;
-      _currentIndex = 0;
+      _selectedMapCategory = null;
+      _currentIndex = 1;
     });
+  }
+
+  void _navigateToMapWithFilter(AreaCategory? category) {
+    setState(() {
+      _selectedMapArea = null;
+      _selectedMapCategory = category;
+      _currentIndex = 1;
+    });
+  }
+
+  void _recordSafeReport(LatLng? location) {
+    setState(() {
+      _safeReportLocation = location;
+    });
+  }
+
+  List<NavigationDestination> _destinationsFor(UserRole role) {
+    final homeLabel = switch (role) {
+      UserRole.citizen => 'Vatandaş Ana Sayfa',
+      UserRole.carrier => 'Lojistik Paneli',
+      UserRole.admin => 'Kriz Yönetimi',
+    };
+    final mapLabel = switch (role) {
+      UserRole.citizen => 'Toplanma Alanları',
+      UserRole.carrier => 'Sevkiyat Haritası',
+      UserRole.admin => 'Afet Haritası',
+    };
+    final triageLabel = switch (role) {
+      UserRole.citizen => 'AI Triage',
+      UserRole.carrier => 'İhtiyaç Analizi',
+      UserRole.admin => 'İhbar Analizi',
+    };
+
+    NavigationDestination destination(IconData icon, String label) {
+      return NavigationDestination(
+        icon: Icon(icon),
+        selectedIcon: Icon(icon, color: role.color),
+        label: label,
+      );
+    }
+
+    return [
+      destination(role.icon, homeLabel),
+      destination(Icons.map_outlined, mapLabel),
+      destination(Icons.psychology_outlined, triageLabel),
+      destination(Icons.auto_awesome_outlined, 'Llama Asistan'),
+    ];
+  }
+
+  Widget _screenForIndex(UserModel user, int index) {
+    switch (index) {
+      case 0:
+        return _buildRoleScreen(user);
+      case 1:
+        return AiDisasterMapScreen(
+          key: ValueKey(
+            '${_selectedMapArea?.id ?? 'tactical_map'}_${user.role.id}',
+          ),
+          initialSelectedArea: _selectedMapArea,
+          initialFilterCategory: _selectedMapCategory,
+          safeReportLocation: _safeReportLocation,
+          isActive: _currentIndex == 1,
+        );
+      case 2:
+        return const AiTriageScreen();
+      case 3:
+        return const AiAssistantScreen();
+      default:
+        throw RangeError.index(index, _destinationsFor(user.role));
+    }
   }
 
   void _showRoleSwitcherDialog(BuildContext context, UserModel currentUser) {
@@ -40,7 +142,10 @@ class _MainShellState extends State<MainShell> {
           children: const [
             Icon(Icons.switch_account_rounded, color: AppColors.primaryBlue),
             SizedBox(width: 8),
-            Text('Rol Değiştir (Demo)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            Text(
+              'Rol Değiştir (Demo)',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
           ],
         ),
         content: Column(
@@ -56,7 +161,9 @@ class _MainShellState extends State<MainShell> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: isCurrent ? role.color.withValues(alpha: 0.1) : Colors.transparent,
+                  color: isCurrent
+                      ? role.color.withValues(alpha: 0.1)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: isCurrent ? role.color : AppColors.border,
@@ -72,7 +179,9 @@ class _MainShellState extends State<MainShell> {
                       color: isCurrent ? role.color : AppColors.textPrimary,
                     ),
                   ),
-                  trailing: isCurrent ? Icon(Icons.check_circle_rounded, color: role.color) : null,
+                  trailing: isCurrent
+                      ? Icon(Icons.check_circle_rounded, color: role.color)
+                      : null,
                   onTap: () {
                     _authService.switchDemoRole(role);
                     Navigator.pop(ctx);
@@ -85,7 +194,10 @@ class _MainShellState extends State<MainShell> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Kapat', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Kapat',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -128,28 +240,31 @@ class _MainShellState extends State<MainShell> {
                   children: [
                     const Text(
                       'AFET DESTEK',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.3),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        letterSpacing: -0.3,
+                      ),
                     ),
                     Text(
                       user.role.title,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: user.role.color),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: user.role.color,
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
             actions: [
-              // Mandatory 112 Emergency Button
               const Emergency112Button(compact: true),
-
-              // Fast Role Switcher
               IconButton(
                 tooltip: 'Rol Değiştir (Demo)',
                 icon: const Icon(Icons.swap_horiz_rounded),
                 onPressed: () => _showRoleSwitcherDialog(context, user),
               ),
-
-              // Logout
               IconButton(
                 tooltip: 'Çıkış Yap',
                 icon: const Icon(Icons.logout_rounded, size: 20),
@@ -159,25 +274,11 @@ class _MainShellState extends State<MainShell> {
           ),
           body: IndexedStack(
             index: _currentIndex,
-            children: [
-              // 0: Harita & Rota (Nereye Gitmeli?)
-              AiDisasterMapScreen(
-                key: ValueKey(_selectedMapArea?.id ?? 'tactical_map'),
-                initialSelectedArea: _selectedMapArea,
-              ),
-
-              // 1: Meta AI Triage İstasyonu (Sesli / Metin İhbar Sınıflandırma)
-              const AiTriageScreen(),
-
-              // 2: Meta Llama 3 Afet Asistanı (Soru & Cevap)
-              const AiAssistantScreen(),
-
-              // 3: Rol Bazlı Ana Panel (Vatandaş, Taşıyıcı, Admin)
-              _buildRoleScreen(user),
-            ],
+            children: List.generate(
+              _destinationsFor(user.role).length,
+              (index) => _screenForIndex(user, index),
+            ),
           ),
-
-          // Spacious, Modern Bottom Navigation Bar
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -197,30 +298,9 @@ class _MainShellState extends State<MainShell> {
                 });
               },
               backgroundColor: Colors.white,
-              indicatorColor: AppColors.primaryBlue.withValues(alpha: 0.14),
+              indicatorColor: user.role.color.withValues(alpha: 0.14),
               height: 68,
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.map_outlined),
-                  selectedIcon: Icon(Icons.map_rounded, color: AppColors.primaryBlue),
-                  label: 'Nereye Gitmeli?',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.psychology_outlined),
-                  selectedIcon: Icon(Icons.psychology_rounded, color: AppColors.primaryBlue),
-                  label: 'Meta AI Triage',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.auto_awesome_outlined),
-                  selectedIcon: Icon(Icons.auto_awesome_rounded, color: AppColors.primaryBlue),
-                  label: 'Llama Asistan',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard_rounded, color: AppColors.primaryBlue),
-                  label: 'Kriz Paneli',
-                ),
-              ],
+              destinations: _destinationsFor(user.role),
             ),
           ),
         );
@@ -234,6 +314,8 @@ class _MainShellState extends State<MainShell> {
         return CitizenHomeScreen(
           user: user,
           onNavigateToMap: _navigateToMapWithArea,
+          onNavigateToMapWithFilter: _navigateToMapWithFilter,
+          onSafeReport: _recordSafeReport,
         );
       case UserRole.carrier:
         return CarrierHomeScreen(
