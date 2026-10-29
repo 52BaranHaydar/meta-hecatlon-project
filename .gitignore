@@ -3,6 +3,7 @@
 *.log
 *.pyc
 *.swp
+*.pdf
 .DS_Store
 .atom/
 .build/
@@ -12,6 +13,12 @@
 .swiftpm/
 migrate_working_dir/
 oracleJdk*/
+
+# Firebase & Environment Secrets (Never commit to public repos)
+.env*
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
 
 # IntelliJ related
 *.iml

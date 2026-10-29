@@ -14,6 +14,13 @@ enum AreaCategory {
   final Color color;
 
   const AreaCategory(this.id, this.title, this.icon, this.color);
+
+  static AreaCategory fromString(String? id) {
+    return AreaCategory.values.firstWhere(
+      (c) => c.id == id,
+      orElse: () => AreaCategory.assemblyArea,
+    );
+  }
 }
 
 class ReliefAreaModel {
@@ -46,6 +53,71 @@ class ReliefAreaModel {
   double get occupancyRate => capacity > 0 ? (occupancy / capacity).clamp(0.0, 1.0) : 0.0;
 
   int get availableSpots => (capacity - occupancy).clamp(0, capacity);
+
+  ReliefAreaModel copyWith({
+    String? id,
+    String? name,
+    String? address,
+    AreaCategory? category,
+    LatLng? location,
+    int? capacity,
+    int? occupancy,
+    List<String>? services,
+    Map<String, String>? stock,
+    String? statusText,
+    bool? isSafe,
+  }) {
+    return ReliefAreaModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      address: address ?? this.address,
+      category: category ?? this.category,
+      location: location ?? this.location,
+      capacity: capacity ?? this.capacity,
+      occupancy: occupancy ?? this.occupancy,
+      services: services ?? this.services,
+      stock: stock ?? this.stock,
+      statusText: statusText ?? this.statusText,
+      isSafe: isSafe ?? this.isSafe,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'address': address,
+      'category': category.id,
+      'lat': location.latitude,
+      'lng': location.longitude,
+      'capacity': capacity,
+      'occupancy': occupancy,
+      'services': services,
+      'stock': stock,
+      'statusText': statusText,
+      'isSafe': isSafe,
+    };
+  }
+
+  factory ReliefAreaModel.fromMap(Map<String, dynamic> map, {String? docId}) {
+    final rawStock = map['stock'] as Map<String, dynamic>? ?? {};
+    return ReliefAreaModel(
+      id: docId ?? map['id'] ?? 'area_custom',
+      name: map['name'] ?? 'Toplanma Alanı',
+      address: map['address'] ?? '',
+      category: AreaCategory.fromString(map['category']),
+      location: LatLng(
+        (map['lat'] as num?)?.toDouble() ?? 37.0680,
+        (map['lng'] as num?)?.toDouble() ?? 37.3790,
+      ),
+      capacity: (map['capacity'] as num?)?.toInt() ?? 1000,
+      occupancy: (map['occupancy'] as num?)?.toInt() ?? 0,
+      services: (map['services'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const ['Temiz Su', 'Güvenli Alan'],
+      stock: rawStock.map((k, v) => MapEntry(k, v.toString())),
+      statusText: map['statusText'] ?? 'Açık & Güvenli',
+      isSafe: map['isSafe'] != false,
+    );
+  }
 
   // Demo Seed Data (Matching Plan L4 requirements)
   static final List<ReliefAreaModel> demoAreas = [

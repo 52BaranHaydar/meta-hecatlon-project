@@ -1,5 +1,6 @@
 {
   "dart.flutterSdkPath": "C:\\src\\flutter",
   "dart.checkForSdkUpdates": false,
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "java.configuration.updateBuildConfiguration": "interactive"
 }
