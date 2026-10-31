@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
+import 'emergency_sos_screen.dart';
 
 class Emergency112Button extends StatelessWidget {
   final bool compact;
@@ -90,6 +92,63 @@ class Emergency112Button extends StatelessWidget {
 class EmergencyActionSheet extends StatelessWidget {
   const EmergencyActionSheet({super.key});
 
+  Future<void> _callNumber(BuildContext context, String number) async {
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+
+    try {
+      final launched = await launchUrl(
+        Uri(scheme: 'tel', path: number),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('$number için telefon arama ekranı açılamadı.'),
+            backgroundColor: AppColors.emergencyRed,
+          ),
+        );
+      }
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Telefon araması başlatılamadı: $error'),
+          backgroundColor: AppColors.emergencyRed,
+        ),
+      );
+    }
+  }
+
+  void _openSosScreen(BuildContext context) {
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const EmergencySosScreen(),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+
+  Widget _callButton(
+    BuildContext context, {
+    required String number,
+    required String title,
+    required IconData icon,
+    Color color = AppColors.primaryBlue,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: () => _callNumber(context, number),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      icon: Icon(icon),
+      label: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -97,146 +156,118 @@ class EmergencyActionSheet extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 48,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 5,
                   decoration: BoxDecoration(
-                    color: AppColors.emergencyLight,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.emergency_rounded,
-                    color: AppColors.emergencyRed,
-                    size: 28,
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        '112 Acil Çağrı Merkezi',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        'Hayati tehlike durumunda doğrudan arayınız',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Emergency GPS Box for operator
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border),
               ),
-              child: Row(
+              const SizedBox(height: 20),
+              Row(
                 children: [
-                  const Icon(Icons.my_location_rounded, color: AppColors.primaryBlue, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: AppColors.emergencyLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.emergency_rounded,
+                      color: AppColors.emergencyRed,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
-                          'Mevcut Konumunuz (Operatöre iletiniz):',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                          'Acil Yardım Hatları',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
-                        SizedBox(height: 2),
                         Text(
-                          '37.0662° K, 37.3833° D (Gaziantep / Şehitkamil)',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          'Arama telefon uygulamasında açılır.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // Big Call Button
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('112 Acil Çağrı simüle ediliyor... (Gerçek cihazda tel:112 arama ekranı açılır)'),
-                    backgroundColor: AppColors.emergencyRed,
+              const SizedBox(height: 18),
+              _callButton(
+                context,
+                number: '112',
+                title: '112 Acil Çağrı Merkezi',
+                icon: Icons.call_rounded,
+                color: AppColors.emergencyRed,
+              ),
+              const SizedBox(height: 8),
+              _callButton(
+                context,
+                number: '122',
+                title: '122 AFAD',
+                icon: Icons.support_agent_rounded,
+              ),
+              const SizedBox(height: 8),
+              _callButton(
+                context,
+                number: '187',
+                title: '187 Doğalgaz Acil',
+                icon: Icons.local_fire_department_rounded,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _openSosScreen(context),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(
+                    color: AppColors.emergencyRed,
+                    width: 1.5,
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.emergencyRed,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              icon: const Icon(Icons.call, size: 24),
-              label: const Text(
-                '112\'Yİ HEMEN ARA',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Whistle / Alarm Button
-            OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Düdük ve yüksek sesli siren çalınıyor!'),
-                    backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.emergencyRed,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                );
-              },
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: AppColors.emergencyRed, width: 1.5),
-                foregroundColor: AppColors.emergencyRed,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.flash_on_rounded),
+                label: const Text(
+                  'Tam Ekran SOS Flaşör + Enkaz Düdüğü',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
-              icon: const Icon(Icons.volume_up_rounded, size: 20),
-              label: const Text(
-                'Sesli Düdük / Siren Çal',
-                style: TextStyle(fontWeight: FontWeight.w700),
+              const SizedBox(height: 8),
+              const Text(
+                'Uygulama konumunuzu arama sırasında otomatik olarak iletmez; konumunuzu operatöre söyleyin.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

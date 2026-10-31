@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import '../../constants/app_colors.dart';
 import '../../models/relief_area_model.dart';
@@ -33,6 +35,9 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
   bool _isNavigating = false;
   bool _isLoadingLocation = false;
   String? _locationError;
+  bool? _hasInternetAccess;
+  String? _connectivityError;
+  StreamSubscription<InternetStatus>? _connectivitySubscription;
   late AnimationController _pulseController;
 
   // Canvas pan & zoom state
@@ -49,7 +54,38 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+    _connectivitySubscription = InternetConnection().onStatusChange.listen(
+      _updateConnectivity,
+      onError: (Object error) => _setConnectivityError(error),
+    );
+    unawaited(_checkConnectivity());
     if (widget.isActive) _loadUserLocation();
+  }
+
+  Future<void> _checkConnectivity() async {
+    try {
+      final hasInternet = await InternetConnection().hasInternetAccess;
+      _updateConnectivity(
+        hasInternet ? InternetStatus.connected : InternetStatus.disconnected,
+      );
+    } catch (error) {
+      _setConnectivityError(error);
+    }
+  }
+
+  void _updateConnectivity(InternetStatus status) {
+    if (!mounted) return;
+    setState(() {
+      _hasInternetAccess = status == InternetStatus.connected;
+      _connectivityError = null;
+    });
+  }
+
+  void _setConnectivityError(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _connectivityError = 'Bağlantı durumu belirlenemedi: $error';
+    });
   }
 
   @override
@@ -111,6 +147,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
   void dispose() {
     _searchController.dispose();
     _pulseController.dispose();
+    unawaited(_connectivitySubscription?.cancel());
     super.dispose();
   }
 
@@ -142,10 +179,58 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
     return earthRadiusKm * c;
   }
 
+  ReliefAreaModel? _nearestAssemblyArea(LatLng? location) {
+    if (location == null) return null;
+
+    ReliefAreaModel? nearest;
+    var nearestDistanceKm = double.infinity;
+    for (final area in ReliefAreaModel.demoAreas) {
+      if (area.category != AreaCategory.assemblyArea || !area.isSafe) continue;
+      final distanceKm = _calculateDistanceKm(location, area.location);
+      if (distanceKm < nearestDistanceKm) {
+        nearest = area;
+        nearestDistanceKm = distanceKm;
+      }
+    }
+    return nearest;
+  }
+
+  String _compassDirection(LatLng from, LatLng to) {
+    final latitude1 = from.latitude * (pi / 180);
+    final latitude2 = to.latitude * (pi / 180);
+    final longitudeDelta = (to.longitude - from.longitude) * (pi / 180);
+    final y = sin(longitudeDelta) * cos(latitude2);
+    final x =
+        cos(latitude1) * sin(latitude2) -
+        sin(latitude1) * cos(latitude2) * cos(longitudeDelta);
+    final bearing = (atan2(y, x) * (180 / pi) + 360) % 360;
+    const directions = [
+      'Kuzey',
+      'Kuzeydoğu',
+      'Doğu',
+      'Güneydoğu',
+      'Güney',
+      'Güneybatı',
+      'Batı',
+      'Kuzeybatı',
+    ];
+    final index = ((bearing + 22.5) / 45).floor() % directions.length;
+    return directions[index];
+  }
+
+  String _formatDistance(double distanceKm) => distanceKm < 1
+      ? '${(distanceKm * 1000).round()} m'
+      : '${distanceKm.toStringAsFixed(1)} km';
+
   @override
   Widget build(BuildContext context) {
     final activeDestination = _selectedArea;
     final userLocation = _userLocation;
+    final nearestAssemblyArea = _nearestAssemblyArea(userLocation);
+    final nearestAssemblyDistanceKm =
+        nearestAssemblyArea != null && userLocation != null
+        ? _calculateDistanceKm(userLocation, nearestAssemblyArea.location)
+        : null;
     final mapOrigin = userLocation ?? ReliefAreaModel.demoAreas.first.location;
     final distanceKm = activeDestination != null && userLocation != null
         ? _calculateDistanceKm(userLocation, activeDestination.location)
@@ -511,6 +596,79 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                               icon: const Icon(Icons.refresh_rounded, size: 18),
                             ),
                         ],
+                      ),
+                    ),
+                  ],
+                  if (_hasInternetAccess == false) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFFCC80)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.cloud_off_rounded,
+                            color: Color(0xFFE65100),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '[ÇEVRİMDIŞI MOD] Kayıtlı Güvenli Alanlar Açık',
+                                  style: TextStyle(
+                                    color: Color(0xFFE65100),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  nearestAssemblyArea == null ||
+                                          nearestAssemblyDistanceKm == null
+                                      ? 'Mesafe ve yön için GPS konumunu alın.'
+                                      : '${nearestAssemblyArea.name}: ${_formatDistance(nearestAssemblyDistanceKm)} kuş uçuşu ${_compassDirection(userLocation!, nearestAssemblyArea.location)}',
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Yerel demo kaydı; resmî güvenlik teyidi veya yürüyüş rotası değildir.',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (_connectivityError != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Bağlantı durumu belirlenemedi; kayıtlı güvenli alanlar çevrimdışı kullanılabilir. $_connectivityError',
+                        style: const TextStyle(
+                          color: Color(0xFFE65100),
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ],
