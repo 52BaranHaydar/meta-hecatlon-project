@@ -426,10 +426,7 @@ class CrisisDataService extends ChangeNotifier {
 
     final updatedArea = current.copyWith(stock: updatedStock);
     _areas[idx] = updatedArea;
-    final demoIdx = ReliefAreaModel.demoAreas.indexWhere((a) => a.id == areaId);
-    if (demoIdx >= 0) {
-      ReliefAreaModel.demoAreas[demoIdx] = updatedArea;
-    }
+    ReliefAreaModel.updateDemoArea(updatedArea);
     notifyListeners();
 
     try {

@@ -1556,6 +1556,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       builder: (ctx) => _CitizenHelpRequestSheet(user: widget.user),
     );
   }
+
+  @override
+  void dispose() {
+    _statusRefreshTimer?.cancel();
+    super.dispose();
+  }
 }
 
 class _CitizenHelpRequestSheet extends StatefulWidget {
@@ -1974,17 +1980,10 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
-            ),
           ],
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _statusRefreshTimer?.cancel();
-    super.dispose();
   }
 }
 

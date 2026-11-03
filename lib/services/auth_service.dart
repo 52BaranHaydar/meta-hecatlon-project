@@ -336,7 +336,7 @@ class AuthService extends ChangeNotifier {
     _currentUser = UserModel(
       uid: 'demo-',
       name: 'Demo ',
-      email: role == UserRole.admin ? 'baranhaydar80@gmail.com' : '\@afet.org',
+      email: role == UserRole.admin ? 'baranhaydar80@gmail.com' : 'demo@afet.org',
       role: role,
     );
     notifyListeners();

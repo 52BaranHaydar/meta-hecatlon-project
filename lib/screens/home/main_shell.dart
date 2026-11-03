@@ -182,7 +182,6 @@ class _MainShellState extends State<MainShell> {
                           fontSize: 16,
                           letterSpacing: -0.3,
                         ),
-                      )
                       ),
                       Text(
                         '${user.role.title} • ${user.email}',
