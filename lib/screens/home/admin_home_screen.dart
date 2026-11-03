@@ -525,6 +525,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Top Row: Category + Urgency Badge and Status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -570,7 +571,39 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
+
+            // Citizen Info Row (if available)
+            if (report.citizenName != null && report.citizenName!.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_pin_rounded, size: 16, color: AppColors.primaryBlue),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'İhbar Sahibi: ${report.citizenName}${report.citizenPhone != null && report.citizenPhone!.isNotEmpty ? " (${report.citizenPhone})" : ""}${report.citizenEmail != null && report.citizenEmail!.isNotEmpty ? " • ${report.citizenEmail}" : ""}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // Raw message text
             Text(
               report.rawText,
               style: TextStyle(
@@ -583,8 +616,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               ),
             ),
             const SizedBox(height: 6),
+
+            // AI Action Recommendation
             Text(
-              'AI Önerisi: ${report.recommendedAction}',
+              'Meta AI Müdahale Protokolü: ${report.recommendedAction}',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -592,6 +627,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               ),
             ),
             const SizedBox(height: 8),
+
+            // Required resources tags
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -619,6 +656,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   .toList(),
             ),
             const SizedBox(height: 10),
+
+            // Location & Time Row
             Row(
               children: [
                 const Icon(
@@ -647,6 +686,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 ),
               ],
             ),
+
             if (!isResolved) ...[
               const Divider(height: 18),
               Row(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import '../../constants/app_colors.dart';
+import '../../constants/meta_ai_config.dart';
 import '../../models/ai_triage_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/crisis_data_service.dart';
@@ -318,8 +319,8 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Meta Llama 3 ile Anlık Afet İhbar & Kriz Masasına Canlı Aktarım',
+                        Text(
+                          'Meta Llama 3 (${MetaAiConfig.maskedKey}) ile Anlık Afet İhbar & Canlı Aktarım',
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,

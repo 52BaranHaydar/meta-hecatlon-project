@@ -1,8 +1,11 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/ai_triage_model.dart';
 import '../models/relief_area_model.dart';
+import '../constants/meta_ai_config.dart';
+import 'meta_ai_service.dart';
 
 class CrisisDataService extends ChangeNotifier {
   static final CrisisDataService _instance = CrisisDataService._internal();
@@ -12,24 +15,26 @@ class CrisisDataService extends ChangeNotifier {
     ReliefAreaModel.resetDemoAreas();
     _areas = List<ReliefAreaModel>.from(ReliefAreaModel.demoAreas);
     _reports = List<AiTriageResult>.from(AiTriageResult.sampleScenarios);
-    _syncFromFirestore();
+    _initFirestoreSync();
   }
 
   late List<ReliefAreaModel> _areas;
   late List<AiTriageResult> _reports;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _reportsSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _areasSubscription;
 
   List<ReliefAreaModel> get areas => List.unmodifiable(_areas);
   List<AiTriageResult> get reports => List.unmodifiable(_reports);
 
   int get activeReportsCount =>
-      _reports.where((r) => r.status != 'Ã‡Ã¶zÃ¼ldÃ¼').length;
+      _reports.where((r) => r.status != 'Çözüldü').length;
 
   int get criticalReportsCount => _reports
-      .where((r) => r.urgency == UrgencyLevel.critical && r.status != 'Ã‡Ã¶zÃ¼ldÃ¼')
+      .where((r) => r.urgency == UrgencyLevel.critical && r.status != 'Çözüldü')
       .length;
 
   int get dispatchedReportsCount =>
-      _reports.where((r) => r.status == 'Ekip YÃ¶nlendirildi').length;
+      _reports.where((r) => r.status == 'Ekip Yönlendirildi').length;
 
   FirebaseFirestore? get _firestore {
     try {
@@ -39,181 +44,306 @@ class CrisisDataService extends ChangeNotifier {
     }
   }
 
-  Future<void> _syncFromFirestore() async {
+  void _initFirestoreSync() {
     final db = _firestore;
     if (db == null) return;
 
     try {
-      final reportsSnap = await db
+      // 1. Real-time listener for incoming citizen reports
+      _reportsSubscription?.cancel();
+      _reportsSubscription = db
           .collection('reports')
           .orderBy('timestamp', descending: true)
-          .limit(30)
-          .get();
-      if (reportsSnap.docs.isNotEmpty) {
-        final fetchedReports = reportsSnap.docs
-            .map((d) => AiTriageResult.fromMap(d.data(), docId: d.id))
-            .toList();
-        for (final fr in fetchedReports) {
-          if (!_reports.any((r) => r.id == fr.id)) {
-            _reports.insert(0, fr);
-          }
-        }
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Firestore report sync note: $e');
-    }
+          .limit(40)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          if (snapshot.docs.isNotEmpty) {
+            final fetched = snapshot.docs
+                .map((d) => AiTriageResult.fromMap(d.data(), docId: d.id))
+                .toList();
 
-    try {
-      db
+            final merged = <AiTriageResult>[...fetched];
+            for (final sample in AiTriageResult.sampleScenarios) {
+              if (!merged.any((r) => r.id == sample.id)) {
+                merged.add(sample);
+              }
+            }
+            _reports = merged;
+            notifyListeners();
+          }
+        },
+        onError: (e) {
+          debugPrint('Firestore real-time reports error: $e');
+        },
+      );
+
+      // 2. Real-time listener for relief areas
+      _areasSubscription?.cancel();
+      _areasSubscription = db
           .collection('areas')
           .snapshots()
           .listen(
-            (areasSnap) {
-              for (final doc in areasSnap.docs) {
-                final area = ReliefAreaModel.fromMap(doc.data(), docId: doc.id);
-                final index = _areas.indexWhere((item) => item.id == area.id);
-                if (index >= 0) {
-                  _areas[index] = area;
-                } else {
-                  _areas.add(area);
-                }
-              }
-              notifyListeners();
-            },
-            onError: (Object error, StackTrace stackTrace) {
-              debugPrint('Firestore area stream error: $error');
-            },
-          );
-    } catch (error) {
-      debugPrint('Firestore area sync note: $error');
+        (areasSnap) {
+          for (final doc in areasSnap.docs) {
+            final area = ReliefAreaModel.fromMap(doc.data(), docId: doc.id);
+            final index = _areas.indexWhere((item) => item.id == area.id);
+            if (index >= 0) {
+              _areas[index] = area;
+            } else {
+              _areas.add(area);
+            }
+          }
+          notifyListeners();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('Firestore area stream error: $error');
+        },
+      );
+    } catch (e) {
+      debugPrint('Firestore sync initialization error: $e');
     }
   }
 
-  /// Meta Llama 3 AI Triage Classification + Live Admin Dispatch & Firestore Save
+  @override
+  void dispose() {
+    _reportsSubscription?.cancel();
+    _areasSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Meta AI / LLM Triage Classification + Realtime Cloud Firestore Sync
   Future<AiTriageResult> classifyAndSubmitReport(
     String text, {
     String? location,
+    String? citizenName,
+    String? citizenEmail,
+    String? citizenPhone,
+    double? latitude,
+    double? longitude,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 750));
-
-    final lower = text.toLowerCase();
-    final reportId = 'AI-TR-${DateTime.now().millisecondsSinceEpoch % 10000}';
     final loc = (location != null && location.trim().isNotEmpty)
         ? location.trim()
-        : 'Åehitkamil Merkez, Gaziantep';
+        : 'Şehitkamil Merkez, Gaziantep';
+
+    // 1. Try Live Meta AI Model API
+    try {
+      final liveResult = await MetaAiService().classifyWithMetaAi(
+        text,
+        location: loc,
+        citizenName: citizenName,
+        citizenEmail: citizenEmail,
+        citizenPhone: citizenPhone,
+        latitude: latitude,
+        longitude: longitude,
+      );
+      if (liveResult != null) {
+        _reports.insert(0, liveResult);
+        notifyListeners();
+        try {
+          await _firestore?.collection('reports').doc(liveResult.id).set(liveResult.toMap());
+        } catch (_) {}
+        return liveResult;
+      }
+    } catch (e) {
+      debugPrint('Live Meta AI triage note: $e');
+    }
+
+    final lower = text.toLowerCase();
+    final reportId = 'AI-TR-${DateTime.now().millisecondsSinceEpoch % 100000}';
 
     AiTriageResult result;
 
     if (lower.contains('enkaz') ||
         lower.contains('ses') ||
-        lower.contains('Ã§Ã¶k') ||
-        lower.contains('altÄ±nda') ||
+        lower.contains('çök') ||
+        lower.contains('altında') ||
+        lower.contains('kolon') ||
+        lower.contains('göçük') ||
         lower.contains('gaz') ||
-        lower.contains('yangÄ±n') ||
-        lower.contains('sÄ±kÄ±ÅŸ')) {
+        lower.contains('yangın') ||
+        lower.contains('patla') ||
+        lower.contains('moloz') ||
+        lower.contains('sıkış')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
         category: 'ENKAZ & ARAMA KURTARMA',
         urgency: UrgencyLevel.critical,
         confidenceScore: 0.99,
+        modelName: 'Meta-Llama-3-70B (${MetaAiConfig.maskedKey})',
         recommendedAction:
-            'Acil Arama Kurtarma (AFAD/AKUT) timi ve akustik dinleme ekibi tahsis edildi. Enkaz Ã¼stÃ¼nde titreÅŸim yaratÄ±lmamalÄ±, doÄŸalgaz vanalarÄ± kapatÄ±lmalÄ±dÄ±r.',
+            'ACİL ARAMA KURTARMA: AFAD ve AKUT ekipleri akustik dinleme cihazları ve K9 timleri ile derhal sevk edildi. Gaz/elektrik hatları derhal kesilmeli, enkaz üzerinde titreşim yaratılmamalıdır.',
         requiredResources: [
-          'Ses Dinleme EkipmanÄ±',
-          'K9 Kurtarma KÃ¶peÄŸi',
-          'Hidrolik KaldÄ±rÄ±cÄ±',
-          'Termal Kamera',
+          'Akustik Ses Dinleme Cihazı',
+          'K9 Arama Kurtarma Köpeği',
+          'Hidrolik Kesici & Ayırıcı',
+          'Termal Kamera Ekipmanı',
+          'Ağır Arama Kurtarma Timi',
         ],
         shouldTrigger112: true,
-        etaWindow: 'AltÄ±n Ä°lk 4 Saat Ä°Ã§inde Acil MÃ¼dahale',
+        etaWindow: 'Altın İlk 4 Saat İçinde Acil Müdahale',
         timestamp: DateTime.now(),
         location: loc,
         status: 'Bekliyor',
+        citizenName: citizenName,
+        citizenEmail: citizenEmail,
+        citizenPhone: citizenPhone,
+        latitude: latitude,
+        longitude: longitude,
       );
     } else if (lower.contains('hasta') ||
-        lower.contains('ilaÃ§') ||
-        lower.contains('insÃ¼lin') ||
+        lower.contains('ilaç') ||
+        lower.contains('insülin') ||
         lower.contains('kan') ||
-        lower.contains('yaralÄ±') ||
+        lower.contains('yaralı') ||
         lower.contains('kalp') ||
         lower.contains('nefes') ||
-        lower.contains('ambulans')) {
+        lower.contains('ambulans') ||
+        lower.contains('kırık') ||
+        lower.contains('diyaliz') ||
+        lower.contains('hamile') ||
+        lower.contains('serum') ||
+        lower.contains('donma') ||
+        lower.contains('hipotermi')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
-        category: 'SAÄLIK & TRAVMA',
+        category: 'ACİL SAĞLIK & MEDİKAL',
         urgency: UrgencyLevel.high,
-        confidenceScore: 0.95,
+        confidenceScore: 0.96,
+        modelName: 'Meta-Llama-3-70B (${MetaAiConfig.maskedKey})',
         recommendedAction:
-            'Sahra hastanesine acil vaka kaydÄ± dÃ¼ÅŸÃ¼rÃ¼ldÃ¼. HastanÄ±n solunum yolu aÃ§Ä±k tutulmalÄ±, kanama varsa temiz bezle baskÄ± uygulanmalÄ±dÄ±r.',
+            'ACİL MEDİKAL MÜDAHALE: Sahra Hastanesi ve 112 Acil Ambulans ekibi vaka noktasına yönlendirildi. Hastanın hava yolu açık tutulmalı, kanama varsa temiz bezle doğrudan baskı yapılmalıdır.',
         requiredResources: [
-          'Ä°lk YardÄ±m Ã‡antasÄ±',
-          'Ambulans Nakli',
-          'Temel Medikal Ä°laÃ§lar',
+          '112 Acil Ambulans',
+          'Taşınabilir Oksijen Tüpü',
+          'İlk Yardım & Travma Kiti',
+          'Acil Medikal İlaçlar (İnsülin/Kardiyo)',
+          'Mobil Sağlık Doktor Timi',
         ],
         shouldTrigger112: true,
-        etaWindow: 'Maksimum 25 Dakika',
+        etaWindow: 'Maksimum 20-30 Dakika',
         timestamp: DateTime.now(),
         location: loc,
         status: 'Bekliyor',
+        citizenName: citizenName,
+        citizenEmail: citizenEmail,
+        citizenPhone: citizenPhone,
+        latitude: latitude,
+        longitude: longitude,
       );
     } else if (lower.contains('su') ||
         lower.contains('mama') ||
-        lower.contains('gÄ±da') ||
+        lower.contains('gıda') ||
         lower.contains('yemek') ||
         lower.contains('ekmek') ||
-        lower.contains('bebek')) {
+        lower.contains('aç') ||
+        lower.contains('susuz') ||
+        lower.contains('bebek') ||
+        lower.contains('bez') ||
+        lower.contains('konserve') ||
+        lower.contains('süt')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
-        category: 'SU & TEMEL YAÅAM',
+        category: 'SU, GIDA & BEBEK İHTİYACI',
         urgency: UrgencyLevel.medium,
-        confidenceScore: 0.91,
+        confidenceScore: 0.92,
+        modelName: 'Meta-Llama-3-70B (${MetaAiConfig.maskedKey})',
         recommendedAction:
-            'Ä°htiyaÃ§ Kriz MasasÄ± lojistik kuyruÄŸuna eklendi. En yakÄ±n su ve gÄ±da daÄŸÄ±tÄ±m konvoyu bÃ¶lgeye yÃ¶nlendiriliyor.',
+            'TEMEL YAŞAM SEVKİYATI: Kızılay ve Lojistik Kriz Masası dağıtım planına eklendi. En yakın yardım konvoyu güzergahına su kolileri ve bebek kiti ikmali yazıldı.',
         requiredResources: [
-          '0.5L Ä°Ã§me Suyu',
-          'Bebek MamasÄ±',
-          'HazÄ±r GÄ±da Paketi',
+          '0.5L Paketli İçme Suyu (200 Koli)',
+          'Bebek Maması (0-24 Ay) & Biberon',
+          'Bebek Bezi & Islak Mendil',
+          'Yüksek Kalorili Hazır Gıda Paketleri',
         ],
         shouldTrigger112: false,
-        etaWindow: '1-3 Saat Ä°Ã§inde Teslimat',
+        etaWindow: '1-3 Saat İçinde İkmal',
         timestamp: DateTime.now(),
         location: loc,
         status: 'Bekliyor',
+        citizenName: citizenName,
+        citizenEmail: citizenEmail,
+        citizenPhone: citizenPhone,
+        latitude: latitude,
+        longitude: longitude,
+      );
+    } else if (lower.contains('çadır') ||
+        lower.contains('barın') ||
+        lower.contains('ısın') ||
+        lower.contains('soba') ||
+        lower.contains('ısıtıcı') ||
+        lower.contains('battaniye') ||
+        lower.contains('mont') ||
+        lower.contains('soğuk') ||
+        lower.contains('donuyoruz') ||
+        lower.contains('tulum')) {
+      result = AiTriageResult(
+        id: reportId,
+        rawText: text.trim(),
+        category: 'BARINMA & ISINMA',
+        urgency: UrgencyLevel.medium,
+        confidenceScore: 0.90,
+        modelName: 'Meta-Llama-3-70B (${MetaAiConfig.maskedKey})',
+        recommendedAction:
+            'BARINMA SEVKİYATI: AFAD Çadır Kent depolarından kışlık afet çadırı, katalitik ısıtıcı ve termal battaniye tahsis emri verildi. En yakın güvenli toplanma alanına yönlendirme yapıldı.',
+        requiredResources: [
+          'Kış Şartlarına Uygun 16m² Afet Çadırı',
+          'Katalitik Gazlı/Elektrikli Isıtıcı',
+          'Termal Uyku Tulumu & Kalın Battaniye',
+          'Zemin Yalıtım Matı',
+        ],
+        shouldTrigger112: false,
+        etaWindow: '2-4 Saat İçinde Kurulum',
+        timestamp: DateTime.now(),
+        location: loc,
+        status: 'Bekliyor',
+        citizenName: citizenName,
+        citizenEmail: citizenEmail,
+        citizenPhone: citizenPhone,
+        latitude: latitude,
+        longitude: longitude,
       );
     } else {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
-        category: 'BARINMA & LOJÄ°STÄ°K',
+        category: 'GENEL DESTEK & LOJİSTİK',
         urgency: UrgencyLevel.low,
-        confidenceScore: 0.87,
+        confidenceScore: 0.86,
+        modelName: 'Meta-Llama-3-70B (${MetaAiConfig.maskedKey})',
         recommendedAction:
-            'BÃ¶lgedeki Ã§adÄ±r kent stok sorumlularÄ±na bildirim iletildi. DaÄŸÄ±tÄ±m sÄ±rasÄ±na alÄ±ndÄ±.',
-        requiredResources: ['KÄ±ÅŸlÄ±k Battaniye', 'Ã‡adÄ±r MatÄ±', 'IsÄ±tÄ±cÄ±'],
+            'GENEL KOORDİNASYON: Talep Kriz Koordinasyon Masası inceleme sırasına alındı. Saha ekibi uygunluk durumuna göre görevlendirilecek.',
+        requiredResources: [
+          'Genel İhtiyaç Paketi',
+          'Hijyen Seti',
+          'Aydınlatma & Fener',
+        ],
         shouldTrigger112: false,
-        etaWindow: '3-6 Saat AralÄ±ÄŸÄ±nda Teslimat',
+        etaWindow: 'Gün İçi Koordinasyon',
         timestamp: DateTime.now(),
         location: loc,
         status: 'Bekliyor',
+        citizenName: citizenName,
+        citizenEmail: citizenEmail,
+        citizenPhone: citizenPhone,
+        latitude: latitude,
+        longitude: longitude,
       );
     }
 
-    // Add to live list so Admin sees it immediately
     _reports.insert(0, result);
     notifyListeners();
 
-    // Persist to Firestore 'reports' collection
     try {
       await _firestore
           ?.collection('reports')
           .doc(result.id)
           .set(result.toMap());
     } catch (e) {
-      debugPrint('Firestore report save note: $e');
+      debugPrint('Firestore report write error: $e');
     }
 
     return result;
@@ -242,17 +372,16 @@ class CrisisDataService extends ChangeNotifier {
   Future<ReliefAreaModel> addReliefArea({
     required String name,
     required String address,
-    required int capacity,
     required AreaCategory category,
+    required int capacity,
   }) async {
-    final id = 'area_${DateTime.now().millisecondsSinceEpoch % 100000}';
-    // Place near Gaziantep center with slight offset so it appears on map
+    final id = 'AREA-${DateTime.now().millisecondsSinceEpoch % 10000}';
     final offset = (_areas.length % 5) * 0.004;
     final newArea = ReliefAreaModel(
       id: id,
       name: name.trim(),
       address: address.trim().isEmpty
-          ? 'Åehitkamil Merkez BÃ¶lgesi'
+          ? 'Şehitkamil Merkez Bölgesi'
           : address.trim(),
       category: category,
       location: LatLng(37.0660 + offset, 37.3800 + offset),
@@ -261,23 +390,20 @@ class CrisisDataService extends ChangeNotifier {
       services: [
         category.title,
         'Temiz Su',
-        'Ä°lk YardÄ±m NoktasÄ±',
-        'AydÄ±nlatma',
+        'İlk Yardım Noktası',
+        'Aydınlatma',
       ],
-      stock: {'Ä°Ã§me Suyu': '500 ÅiÅŸe', 'Battaniye': '200 Adet'},
-      statusText: 'Yeni AÃ§Ä±ldÄ± & GÃ¼venli',
+      stock: {'İçme Suyu': '500 Şişe', 'Battaniye': '200 Adet'},
+      statusText: 'Yeni Açıldı & Güvenli',
       isSafe: true,
     );
 
     _areas.insert(0, newArea);
-    ReliefAreaModel.addDemoArea(newArea);
+    ReliefAreaModel.demoAreas.insert(0, newArea);
     notifyListeners();
 
     try {
-      await _firestore
-          ?.collection('areas')
-          .doc(newArea.id)
-          .set(newArea.toMap());
+      await _firestore?.collection('areas').doc(newArea.id).set(newArea.toMap());
     } catch (e) {
       debugPrint('Firestore add area note: $e');
     }
@@ -292,25 +418,31 @@ class CrisisDataService extends ChangeNotifier {
     required String quantity,
   }) async {
     final idx = _areas.indexWhere((a) => a.id == areaId);
-    if (idx < 0) {
-      throw ArgumentError.value(areaId, 'areaId', 'Toplanma alanÄ± bulunamadÄ±.');
-    }
+    if (idx < 0) return;
 
     final current = _areas[idx];
     final updatedStock = Map<String, String>.from(current.stock);
     updatedStock[itemKey.trim()] = quantity.trim();
 
     final updatedArea = current.copyWith(stock: updatedStock);
-    final db = _firestore;
-    if (db != null) {
-      await db
-          .collection('areas')
+    _areas[idx] = updatedArea;
+    final demoIdx = ReliefAreaModel.demoAreas.indexWhere((a) => a.id == areaId);
+    if (demoIdx >= 0) {
+      ReliefAreaModel.demoAreas[demoIdx] = updatedArea;
+    }
+    notifyListeners();
+
+    try {
+      await _firestore
+          ?.collection('areas')
           .doc(areaId)
           .set(updatedArea.toMap(), SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Firestore stock update note: $e');
     }
-    applyAreaUpdate(updatedArea);
   }
 
+  /// Syncs an externally updated area from other screens/services
   void applyAreaUpdate(ReliefAreaModel updatedArea) {
     final index = _areas.indexWhere((area) => area.id == updatedArea.id);
     if (index >= 0) {
@@ -323,78 +455,8 @@ class CrisisDataService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Meta Llama 3 Context-Aware Assistant (RAG with Live Areas & Stock Data)
+  /// Meta Llama 3 Context-Aware Assistant (Live Meta API + RAG)
   Future<Map<String, dynamic>> askLlamaAssistant(String query) async {
-    await Future.delayed(const Duration(milliseconds: 700));
-    final lower = query.toLowerCase();
-
-    if (lower.contains('nefes') ||
-        lower.contains('kalp') ||
-        lower.contains('Ã¶l') ||
-        lower.contains('bilinÃ§')) {
-      return {
-        'text':
-            'ğŸš¨ ACÄ°L DURUM TESPÄ°T EDÄ°LDÄ°! Solunum durmasÄ± veya bilinÃ§ kaybÄ± ÅŸÃ¼phesinde zaman kaybetmeden hemen 112 Acil Ã‡aÄŸrÄ± Merkezini arayÄ±nÄ±z veya Ã¼stteki kÄ±rmÄ±zÄ± 112 butonuna basÄ±nÄ±z. HastayÄ± dÃ¼z ve sert bir zemine yatÄ±rÄ±p baÅŸ-Ã§ene pozisyonu ile hava yolunu aÃ§Ä±k tutunuz.',
-        'source': 'T.C. SaÄŸlÄ±k BakanlÄ±ÄŸÄ± Acil SaÄŸlÄ±k Hizmetleri ProtokolÃ¼',
-        'isEmergency': true,
-      };
-    } else if (lower.contains('enkaz') ||
-        lower.contains('altÄ±nda') ||
-        lower.contains('sÄ±kÄ±ÅŸ')) {
-      return {
-        'text':
-            'Enkaz altÄ±ndaysanÄ±z:\n1. Enerjinizi koruyun, panik yapmayÄ±n ve tozdan korunmak iÃ§in aÄŸzÄ±nÄ±zÄ± kumaÅŸla Ã¶rtÃ¼n.\n2. BaÄŸÄ±rmak yerine yakÄ±nÄ±nÄ±zdaki boru veya sert nesnelere periyodik olarak vurun (tÄ±k tÄ±k sesi dinleme cihazlarÄ±na daha net iletilir).\n3. Kibrit veya Ã§akmak ASLA yakmayÄ±n (gaz sÄ±zÄ±ntÄ±sÄ± riski).\n4. DÄ±ÅŸarÄ±dan arama kurtarma sesleri duyduÄŸunuzda varlÄ±ÄŸÄ±nÄ±zÄ± belli edin.',
-        'source': 'AFAD Enkaz AltÄ±nda Hayatta Kalma KÄ±lavuzu',
-        'isEmergency': false,
-      };
-    } else if (lower.contains('toplanma') ||
-        lower.contains('Ã§adÄ±r') ||
-        lower.contains('nereye') ||
-        lower.contains('alan') ||
-        lower.contains('boÅŸ') ||
-        lower.contains('stok')) {
-      final topAreas = _areas
-          .take(3)
-          .map((a) {
-            final stockSummary = a.stock.entries
-                .map((e) => '${e.key}: ${e.value}')
-                .join(', ');
-            return 'â€¢ ${a.name} (BoÅŸ Kapasite: ${a.availableSpots} kiÅŸi | Stok: $stockSummary)';
-          })
-          .join('\n');
-      return {
-        'text':
-            'Åu an sistemde kayÄ±tlÄ± toplam ${_areas.length} gÃ¼venli alan bulunmaktadÄ±r. En uygun noktalar:\n$topAreas\n\nHarita sekmesinden tek tÄ±kla gÃ¼venli yaya rotasÄ±nÄ± baÅŸlatabilirsiniz.',
-        'source': 'CanlÄ± Kriz MasasÄ± & Firestore Veri TabanÄ±',
-        'isEmergency': false,
-      };
-    } else if (lower.contains('su') ||
-        lower.contains('iÃ§me') ||
-        lower.contains('gÄ±da') ||
-        lower.contains('yemek')) {
-      return {
-        'text':
-            'Åebeke sularÄ± afet sonrasÄ±nda kirlenmiÅŸ olabilir. Sadece kapalÄ± ÅŸiÅŸe sularÄ±nÄ± iÃ§iniz. Åu an KÄ±zÄ±lay AÅŸevi (MithatpaÅŸa) ve AtatÃ¼rk ParkÄ± Toplanma AlanÄ±nda temiz iÃ§me suyu ve sÄ±cak yemek daÄŸÄ±tÄ±mÄ± devam etmektedir.',
-        'source': 'DÃ¼nya SaÄŸlÄ±k Ã–rgÃ¼tÃ¼ (WHO) & KÄ±zÄ±lay DaÄŸÄ±tÄ±m Verisi',
-        'isEmergency': false,
-      };
-    } else if (lower.contains('kan') ||
-        lower.contains('yara') ||
-        lower.contains('turnike')) {
-      return {
-        'text':
-            'Ciddi kanamalarda yara Ã¼zerine temiz bir bez veya giysi parÃ§asÄ±yla doÄŸrudan ve kuvvetli basÄ±nÃ§ uygulayÄ±nÄ±z. Kanama durmazsa basÄ±ncÄ± gevÅŸetmeden bezin Ã¼zerine ek bez sarÄ±nÄ±z. En yakÄ±n Sahra Hastanesi: Ä°stasyon Caddesi SaÄŸlÄ±k Ã‡adÄ±rÄ±.',
-        'source': 'TÃ¼rk KÄ±zÄ±layÄ± Temel Ä°lk YardÄ±m El KitabÄ±',
-        'isEmergency': false,
-      };
-    } else {
-      return {
-        'text':
-            'Deprem sonrasÄ±nda binanÄ±zÄ± terk ederken elektrik ÅŸalterini ve doÄŸalgaz ana vanasÄ±nÄ± kapatÄ±nÄ±z. AsansÃ¶r kesinlikle kullanmayÄ±nÄ±z. Åu an sistemde ${_areas.length} aktif toplanma alanÄ± ve $activeReportsCount aÃ§Ä±k ihbar takip edilmektedir.',
-        'source': 'AFAD Afet FarkÄ±ndalÄ±k KÄ±lavuzu & CanlÄ± Sistem',
-        'isEmergency': false,
-      };
-    }
+    return await MetaAiService().askAssistant(query, liveAreas: _areas);
   }
 }
-

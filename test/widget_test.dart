@@ -11,6 +11,28 @@ void main() {
     expect(find.text('Giriş Yap'), findsWidgets);
   });
 
+  test('email role resolution enforces Firebase role rules', () {
+    expect(
+      AuthService.resolveRoleForEmail('vatandas@ornek.com', UserRole.citizen),
+      UserRole.citizen,
+    );
+    expect(
+      AuthService.resolveRoleForEmail('lojistik@ornek.com', UserRole.carrier),
+      UserRole.carrier,
+    );
+    expect(
+      AuthService.resolveRoleForEmail('vatandas@ornek.com', UserRole.admin),
+      UserRole.citizen,
+    );
+    expect(
+      AuthService.resolveRoleForEmail(
+        'baranhaydar80@gmail.com',
+        UserRole.citizen,
+      ),
+      UserRole.admin,
+    );
+  });
+
   testWidgets('role changes open the matching role home tab', (
     WidgetTester tester,
   ) async {

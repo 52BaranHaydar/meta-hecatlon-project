@@ -47,6 +47,11 @@ class AiTriageResult {
   final DateTime timestamp;
   final String location;
   final String status; // 'Bekliyor', 'Ekip Yönlendirildi', 'Çözüldü'
+  final String? citizenName;
+  final String? citizenEmail;
+  final String? citizenPhone;
+  final double? latitude;
+  final double? longitude;
 
   const AiTriageResult({
     required this.id,
@@ -62,6 +67,11 @@ class AiTriageResult {
     required this.timestamp,
     this.location = 'Şehitkamil Merkez, Gaziantep',
     this.status = 'Bekliyor',
+    this.citizenName,
+    this.citizenEmail,
+    this.citizenPhone,
+    this.latitude,
+    this.longitude,
   });
 
   AiTriageResult copyWith({
@@ -78,6 +88,11 @@ class AiTriageResult {
     DateTime? timestamp,
     String? location,
     String? status,
+    String? citizenName,
+    String? citizenEmail,
+    String? citizenPhone,
+    double? latitude,
+    double? longitude,
   }) {
     return AiTriageResult(
       id: id ?? this.id,
@@ -93,6 +108,11 @@ class AiTriageResult {
       timestamp: timestamp ?? this.timestamp,
       location: location ?? this.location,
       status: status ?? this.status,
+      citizenName: citizenName ?? this.citizenName,
+      citizenEmail: citizenEmail ?? this.citizenEmail,
+      citizenPhone: citizenPhone ?? this.citizenPhone,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 
@@ -111,6 +131,11 @@ class AiTriageResult {
       'timestamp': timestamp.toIso8601String(),
       'location': location,
       'status': status,
+      'citizenName': citizenName,
+      'citizenEmail': citizenEmail,
+      'citizenPhone': citizenPhone,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -134,6 +159,11 @@ class AiTriageResult {
           : DateTime.now(),
       location: map['location'] ?? 'Gaziantep Merkez',
       status: map['status'] ?? 'Bekliyor',
+      citizenName: map['citizenName'],
+      citizenEmail: map['citizenEmail'],
+      citizenPhone: map['citizenPhone'],
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
     );
   }
 
