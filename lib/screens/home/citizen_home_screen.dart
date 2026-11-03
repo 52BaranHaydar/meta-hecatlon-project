@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../../constants/app_colors.dart';
 import '../../models/ai_triage_model.dart';
 import '../../services/crisis_data_service.dart';
+import '../../services/language_service.dart';
 import '../../models/relief_area_model.dart';
 import '../../models/user_model.dart';
 import '../../services/location_service.dart';
@@ -806,7 +807,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                                 color: Colors.lightGreenAccent,
                                 size: 18,
                               ),
-                        label: const Text('GÜVENDEYİM'),
+                        label: Text(context.t('I AM SAFE', 'GÜVENDEYİM')),
                       ),
                     ),
                   ],
@@ -897,8 +898,8 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Yakın Toplanma Alanları',
+              Text(
+                context.t('Nearby Relief Areas', 'Yakın Toplanma Alanları'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -913,8 +914,8 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                     widget.onNavigateToMap!(null);
                   }
                 },
-                child: const Text(
-                  'Haritada Aç',
+                child: Text(
+                  context.t('View on Map', 'Haritada Aç'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                 ),
               ),

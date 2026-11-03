@@ -7,6 +7,7 @@ import '../../models/relief_area_model.dart';
 import '../../models/shipment_model.dart';
 import '../../models/user_model.dart';
 import '../../services/crisis_data_service.dart';
+import '../../services/language_service.dart';
 import '../../services/logistics_service.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -174,8 +175,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            'Kriz Masası Yetkilisi',
+                          child: Text(
+                            context.t('Crisis Command Officer', 'Kriz Masası Yetkilisi'),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -189,25 +190,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                     Row(
                       children: [
                         _buildStatCard(
-                          'Kurtarılan Can',
+                          context.t('Rescued Lives', 'Kurtarılan Can'),
                           '${_crisisService.resolvedReportsCount}',
                           Icons.volunteer_activism_rounded,
                         ),
                         const SizedBox(width: 6),
                         _buildStatCard(
-                          'Açık Enkaz',
+                          context.t('Open Collapses', 'Açık Enkaz'),
                           '${_crisisService.openCollapseReportsCount}',
                           Icons.emergency_rounded,
                         ),
                         const SizedBox(width: 6),
                         _buildStatCard(
-                          'Aktif Sevk',
+                          context.t('Dispatched', 'Aktif Sevk'),
                           '${_crisisService.dispatchedReportsCount}',
                           Icons.local_shipping_rounded,
                         ),
                         const SizedBox(width: 6),
                         _buildStatCard(
-                          'Güvenli Alan',
+                          context.t('Safe Areas', 'Güvenli Alan'),
                           '${areas.length}',
                           Icons.location_city_rounded,
                         ),
@@ -228,8 +229,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                           elevation: 0,
                         ),
                         icon: const Icon(Icons.assessment_rounded, size: 18, color: Color(0xFF5B21B6)),
-                        label: const Text(
-                          'AFET DURUM ÖZETİ & JÜRİ BRİFİNGİ AL',
+                        label: Text(
+                          context.t('DISASTER SUMMARY & JURY BRIEFING', 'AFET DURUM ÖZETİ & JÜRİ BRİFİNGİ AL'),
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 12,
@@ -260,8 +261,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                         Icons.add_location_alt_rounded,
                         size: 18,
                       ),
-                      label: const Text(
-                        'Toplanma Alanı Ekle',
+                      label: Text(
+                        context.t('Add Relief Shelter', 'Toplanma Alanı Ekle'),
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
@@ -282,8 +283,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                         ),
                       ),
                       icon: const Icon(Icons.inventory_rounded, size: 18),
-                      label: const Text(
-                        'Stok Güncelle',
+                      label: Text(
+                        context.t('Update Stock', 'Stok Güncelle'),
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
@@ -299,8 +300,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Gelen Yardım İhbarları (Meta AI)',
+                  Text(
+                    context.t('Incoming Relief Requests (Meta AI)', 'Gelen Yardım İhbarları (Meta AI)'),
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -317,11 +318,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
-                      children: const [
-                        Icon(Icons.circle, size: 8, color: AppColors.success),
+                      children: [
+                        const Icon(Icons.circle, size: 8, color: AppColors.success),
                         SizedBox(width: 5),
                         Text(
-                          'Canlı Akış',
+                          context.t('Live Stream', 'Canlı Akış'),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -342,12 +343,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                   children: [
                     _buildFilterChip(
                       'ALL',
-                      'Tümü (${_crisisService.reports.length})',
+                      '${context.t("All", "Tümü")} (${_crisisService.reports.length})',
                     ),
-                    _buildFilterChip('CRITICAL', '🚨 Kritik'),
-                    _buildFilterChip('HIGH', '⚠️ Yüksek'),
-                    _buildFilterChip('MEDIUM', 'ℹ️ Orta/Düşük'),
-                    _buildFilterChip('RESOLVED', '✅ Çözülenler'),
+                    _buildFilterChip('CRITICAL', context.t('🚨 Critical', '🚨 Kritik')),
+                    _buildFilterChip('HIGH', context.t('⚠️ High', '⚠️ Yüksek')),
+                    _buildFilterChip('MEDIUM', context.t('ℹ️ Med/Low', 'ℹ️ Orta/Düşük')),
+                    _buildFilterChip('RESOLVED', context.t('✅ Resolved', '✅ Çözülenler')),
                   ],
                 ),
               ),
@@ -362,8 +363,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: const Text(
-                    'Bu filtrede görüntülenecek ihbar bulunmuyor.',
+                  child: Text(
+                    context.t('No reports found matching this filter.', 'Bu filtrede görüntülenecek ihbar bulunmuyor.'),
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w600,
@@ -386,7 +387,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                 children: [
                   Expanded(
                     child: Text(
-                      'Aktif Toplanma Alanları & Stoklar',
+                      context.t('Active Relief Areas & Supplies', 'Aktif Toplanma Alanları & Stoklar'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -404,7 +405,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                       }
                     },
                     icon: const Icon(Icons.map_rounded, size: 16),
-                    label: const Text('Haritada Aç'),
+                    label: Text(context.t('View on Map', 'Haritada Aç')),
                   ),
                 ],
               ),
@@ -433,9 +434,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
           children: [
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Canlı Sevkiyat Takibi',
+                    context.t('Live Shipment Monitor', 'Canlı Sevkiyat Takibi'),
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -444,13 +445,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                   ),
                 ),
                 if (widget.logisticsService.syncError == null)
-                  const Chip(
-                    avatar: Icon(
+                  Chip(
+                    avatar: const Icon(
                       Icons.circle,
                       size: 8,
                       color: AppColors.success,
                     ),
-                    label: Text('Canlı'),
+                    label: Text(context.t('Live', 'Canlı')),
                   ),
               ],
             ),
@@ -463,10 +464,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                 ),
               ),
             if (shipments.isEmpty)
-              const Card(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('Henüz kayıtlı sevkiyat yok.'),
+                  padding: const EdgeInsets.all(16),
+                  child: Text(context.t('No registered shipments yet.', 'Henüz kayıtlı sevkiyat yok.')),
                 ),
               )
             else
@@ -630,8 +631,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                       children: [
                         Row(
                           children: [
-                            const Text(
-                              'KIRMIZI KOD ALARMI',
+                            Text(
+                              context.t('RED CODE ALARM', 'KIRMIZI KOD ALARMI'),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w900,
@@ -647,7 +648,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                '${_crisisService.criticalReportsCount} Acil Enkaz',
+                                '${_crisisService.criticalReportsCount} ${context.t("Critical Rubble", "Acil Enkaz")}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,
@@ -658,8 +659,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                           ],
                         ),
                         const SizedBox(height: 2),
-                        const Text(
-                          'Meta AI Llama 3: Enkaz altında canlı insan teyit edildi!',
+                        Text(
+                          context.t('Meta AI Llama 3: Human presence confirmed under rubble!', 'Meta AI Llama 3: Enkaz altında canlı insan teyit edildi!'),
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
@@ -729,7 +730,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                     ],
                     const SizedBox(height: 6),
                     Text(
-                      '🛠️ Gerekli Ekipman: ${report.requiredResources.join(', ')}',
+                      '${context.t("🛠️ Required Equipment:", "🛠️ Gerekli Ekipman:")} ${report.requiredResources.join(", ")}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -768,8 +769,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                         ),
                       ),
                       icon: const Icon(Icons.bolt_rounded, size: 16),
-                      label: const Text(
-                        'Derhal Ekip Sevk Et',
+                      label: Text(
+                        context.t('Dispatch Emergency Team', 'Derhal Ekip Sevk Et'),
                         style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
                       ),
                     ),
@@ -786,8 +787,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with SingleTickerProv
                       ),
                     ),
                     icon: const Icon(Icons.pin_drop_rounded, size: 16),
-                    label: const Text(
-                      'Haritada Gör',
+                    label: Text(
+                      context.t('View on Map', 'Haritada Gör'),
                       style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
                     ),
                   ),
@@ -826,7 +827,7 @@ Sistem Altyapısı: T.C. İçişleri Bakanlığı AFAD, Cloud Firestore & Meta L
 
 2. META AI (LLAMA 3 / MUSE) TRİYAJ RAPORU:
 • Sahadan gelen tüm acil yardım çağrıları ortalama 1.2 saniyede taranmış; %98.4 güvenilirlik skoru ile kategorize edilmiştir.
-• Kritik enkaz bildirimleri için otomatik 'KIRMIZI KOD ALARMI' oluşturulup Arama Kurtarma ekipleri bölgeye sevk edilmiştir.
+• Kritik enkaz bildirimleri için otomatik context.t('RED CODE ALARM', 'KIRMIZI KOD ALARMI') oluşturulup Arama Kurtarma ekipleri bölgeye sevk edilmiştir.
 
 3. LOJİSTİK VE STOK KORİDORU:
 • Toplam Sevkiyat: ${shipments.length} araç
@@ -902,9 +903,9 @@ Sistem Altyapısı: T.C. İçişleri Bakanlığı AFAD, Cloud Firestore & Meta L
                       children: [
                         _buildBriefingKpi('Toplam İhbar', '$totalReports', Icons.inbox_rounded, AppColors.primaryBlue),
                         const SizedBox(width: 8),
-                        _buildBriefingKpi('Kurtarılan Can', '$resolvedCount', Icons.volunteer_activism_rounded, AppColors.success),
+                        _buildBriefingKpi(context.t('Rescued Lives', 'Kurtarılan Can'), '$resolvedCount', Icons.volunteer_activism_rounded, AppColors.success),
                         const SizedBox(width: 8),
-                        _buildBriefingKpi('Açık Enkaz', '$collapseCount', Icons.emergency_rounded, AppColors.emergencyRed),
+                        _buildBriefingKpi(context.t('Open Collapses', 'Açık Enkaz'), '$collapseCount', Icons.emergency_rounded, AppColors.emergencyRed),
                         const SizedBox(width: 8),
                         _buildBriefingKpi('Sevk Edilen', '$dispatchedCount', Icons.local_shipping_rounded, AppColors.carrierOrange),
                       ],
@@ -1295,8 +1296,8 @@ Sistem Altyapısı: T.C. İçişleri Bakanlığı AFAD, Cloud Firestore & Meta L
                           ),
                         ),
                         icon: const Icon(Icons.bolt_rounded, size: 16),
-                        label: const Text(
-                          'Ekip Sevk Et',
+                        label: Text(
+                          context.t('Dispatch Team', 'Ekip Sevk Et'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -1329,8 +1330,8 @@ Sistem Altyapısı: T.C. İçişleri Bakanlığı AFAD, Cloud Firestore & Meta L
                         ),
                       ),
                       icon: const Icon(Icons.check_circle_outline, size: 16),
-                      label: const Text(
-                        'Kurtarıldı / Çözüldü',
+                      label: Text(
+                        context.t('Rescued / Resolved', 'Kurtarıldı / Çözüldü'),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -1361,7 +1362,7 @@ Sistem Altyapısı: T.C. İçişleri Bakanlığı AFAD, Cloud Firestore & Meta L
                   TextButton.icon(
                     onPressed: () => _focusOnReportOnMap(report),
                     icon: const Icon(Icons.map_rounded, size: 16),
-                    label: const Text('Haritada Noktayı İncele', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    label: Text(context.t('Inspect Location on Map', 'Haritada Noktayı İncele'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                   ),
                 ],
               ),

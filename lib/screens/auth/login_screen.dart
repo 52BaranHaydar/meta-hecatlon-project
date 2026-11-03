@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
+import '../../services/language_service.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/emergency_112_button.dart';
 import 'forgot_password_screen.dart';
@@ -58,7 +59,10 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
         actions: const [
+          LanguageToggleButton(compact: true),
+          SizedBox(width: 8),
           Emergency112Button(compact: true),
+          SizedBox(width: 12),
         ],
       ),
       body: SafeArea(
@@ -89,15 +93,15 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(
+                          children: [
+                            const Icon(
                               Icons.auto_awesome,
                               size: 16,
                               color: Color(0xFF2563EB),
                             ),
                             SizedBox(width: 8),
                             Text(
-                              'META AI AFET KOORDİNASYON',
+                              context.t('META AI DISASTER COORDINATION', 'META AI AFET KOORDİNASYON'),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
@@ -112,8 +116,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 18),
 
                     // App Title
-                    const Text(
-                      'AFET DESTEK',
+                    Text(
+                      context.t('DISASTER RELIEF', 'AFET DESTEK'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 28,
@@ -123,8 +127,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Meta Llama 3 Triage & Akıllı Tahliye Sistemi',
+                    Text(
+                      context.t('Meta Llama 3 Triage & Smart Evacuation System', 'Meta Llama 3 Triage & Akıllı Tahliye Sistemi'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
@@ -151,8 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Giriş Yap',
+                          Text(
+                            context.t('Sign In', 'Giriş Yap'),
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
@@ -160,8 +164,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Firebase hesabınıza kayıtlı e-posta ve şifrenizle giriş yapın. Rolünüz otomatik olarak yüklenecektir.',
+                          Text(
+                            context.t('Sign in with your registered email and password. Your role will be loaded automatically.', 'Firebase hesabınıza kayıtlı e-posta ve şifrenizle giriş yapın. Rolünüz otomatik olarak yüklenecektir.'),
                             style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textSecondary,
@@ -171,16 +175,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           CustomTextField(
                             controller: _emailController,
-                            label: 'E-Posta Adresi',
+                            label: context.t('Email Address', 'E-Posta Adresi'),
                             hint: 'ornek@gmail.com',
                             prefixIcon: Icons.email_outlined,
                             keyboardType: TextInputType.emailAddress,
                             validator: (val) {
                               if (val == null || val.trim().isEmpty) {
-                                return 'E-posta boş bırakılamaz';
+                                return context.t('Email cannot be empty', 'E-posta boş bırakılamaz');
                               }
                               if (!val.contains('@')) {
-                                return 'Geçerli bir e-posta girin';
+                                return context.t('Enter a valid email', 'Geçerli bir e-posta girin');
                               }
                               return null;
                             },
@@ -189,13 +193,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           CustomTextField(
                             controller: _passwordController,
-                            label: 'Şifre',
+                            label: context.t('Password', 'Şifre'),
                             hint: '••••••••',
                             prefixIcon: Icons.lock_outline_rounded,
                             isPassword: true,
                             validator: (val) {
                               if (val == null || val.isEmpty) {
-                                return 'Şifre boş bırakılamaz';
+                                return context.t('Password cannot be empty', 'Şifre boş bırakılamaz');
                               }
                               return null;
                             },
@@ -225,8 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  const Text(
-                                    'Beni Hatırla',
+                                  Text(
+                                    context.t('Remember Me', 'Beni Hatırla'),
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: AppColors.textSecondary,
@@ -244,8 +248,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   );
                                 },
-                                child: const Text(
-                                  'Şifremi Unuttum',
+                                child: Text(
+                                  context.t('Forgot Password?', 'Şifremi Unuttum'),
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
@@ -259,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           // Login Button
                           CustomPrimaryButton(
-                            text: 'Giriş Yap',
+                            text: context.t('Sign In', 'Giriş Yap'),
                             icon: Icons.login_rounded,
                             isLoading: _authService.isLoading,
                             onPressed: _handleLogin,
@@ -273,8 +277,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
-                          'Henüz bir hesabınız yok mu? ',
+                        Text(
+                          context.t("Don't have an account? ", 'Henüz bir hesabınız yok mu? '),
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.textSecondary,
@@ -289,8 +293,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             );
                           },
-                          child: const Text(
-                            'Kayıt Ol',
+                          child: Text(
+                            context.t('Register', 'Kayıt Ol'),
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,

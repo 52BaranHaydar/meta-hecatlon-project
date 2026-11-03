@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
 enum UserRole {
-  citizen('citizen', 'Vatandaş', Icons.person_rounded, AppColors.citizenBlue),
-  carrier('carrier', 'Lojistik / Taşıyıcı', Icons.local_shipping_rounded, AppColors.carrierOrange),
-  admin('admin', 'Kriz Yönetimi (Admin)', Icons.admin_panel_settings_rounded, AppColors.adminPurple);
+  citizen('citizen', 'Vatandaş', 'Citizen', Icons.person_rounded, AppColors.citizenBlue),
+  carrier('carrier', 'Lojistik / Taşıyıcı', 'Carrier / Logistics', Icons.local_shipping_rounded, AppColors.carrierOrange),
+  admin('admin', 'Kriz Yönetimi (Admin)', 'Crisis Admin', Icons.admin_panel_settings_rounded, AppColors.adminPurple);
 
   final String id;
   final String title;
+  final String enTitle;
   final IconData icon;
   final Color color;
 
-  const UserRole(this.id, this.title, this.icon, this.color);
+  const UserRole(this.id, this.title, this.enTitle, this.icon, this.color);
 
   static UserRole fromString(String? role) {
     switch (role?.toLowerCase()) {

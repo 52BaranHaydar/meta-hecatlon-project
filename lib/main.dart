@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/main_shell.dart';
 import 'services/auth_service.dart';
+import 'services/language_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,20 +30,26 @@ class AfetDestekApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = AuthService();
+    final langService = LanguageService.instance;
 
-    return MaterialApp(
-      title: 'Afet Destek - Meta AI',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: ListenableBuilder(
-        listenable: authService,
-        builder: (context, _) {
-          if (authService.isAuthenticated) {
-            return const MainShell();
-          }
-          return const LoginScreen();
-        },
-      ),
+    return ListenableBuilder(
+      listenable: langService,
+      builder: (context, _) {
+        return MaterialApp(
+          title: langService.isEnglish ? 'Disaster Relief - Meta AI' : 'Afet Destek - Meta AI',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          home: ListenableBuilder(
+            listenable: authService,
+            builder: (context, _) {
+              if (authService.isAuthenticated) {
+                return MainShell(key: ValueKey(langService.currentLanguage));
+              }
+              return LoginScreen(key: ValueKey(langService.currentLanguage));
+            },
+          ),
+        );
+      },
     );
   }
 }

@@ -1,12 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:afet_destek/main.dart';
 import 'package:afet_destek/models/user_model.dart';
 import 'package:afet_destek/services/auth_service.dart';
+import 'package:afet_destek/services/language_service.dart';
 
 void main() {
-  testWidgets('Afet Destek smoke test', (WidgetTester tester) async {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    LanguageService.instance.setLanguage(AppLanguage.en);
+  });
+
+  testWidgets('Afet Destek smoke test (English default)', (WidgetTester tester) async {
     await tester.pumpWidget(const AfetDestekApp());
+    expect(find.text('DISASTER RELIEF'), findsOneWidget);
+    expect(find.text('Sign In'), findsWidgets);
+  });
+
+  testWidgets('language toggle switches interface between English and Turkish', (WidgetTester tester) async {
+    await tester.pumpWidget(const AfetDestekApp());
+    expect(find.text('DISASTER RELIEF'), findsOneWidget);
+
+    await LanguageService.instance.setLanguage(AppLanguage.tr);
+    await tester.pumpAndSettle();
     expect(find.text('AFET DESTEK'), findsOneWidget);
     expect(find.text('Giriş Yap'), findsWidgets);
   });
@@ -38,6 +55,7 @@ void main() {
   ) async {
     final authService = AuthService();
     addTearDown(authService.logout);
+    LanguageService.instance.setLanguage(AppLanguage.tr);
     authService.switchDemoRole(UserRole.citizen);
 
     await tester.pumpWidget(const AfetDestekApp());
@@ -61,6 +79,7 @@ void main() {
   ) async {
     final authService = AuthService();
     addTearDown(authService.logout);
+    LanguageService.instance.setLanguage(AppLanguage.tr);
     authService.switchDemoRole(UserRole.carrier);
 
     await tester.pumpWidget(const AfetDestekApp());

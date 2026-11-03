@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/meta_ai_config.dart';
 import '../../services/crisis_data_service.dart';
+import '../../services/language_service.dart';
 import '../../widgets/emergency_112_button.dart';
 
 class ChatMessage {
@@ -103,8 +104,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Meta Llama 3 Asistanı',
+                Text(
+                  context.t('Meta Llama 3 Assistant', 'Meta Llama 3 Asistanı'),
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
                 Text(
@@ -116,7 +117,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ],
         ),
         actions: const [
+          LanguageToggleButton(compact: true),
+          SizedBox(width: 8),
           Emergency112Button(compact: true),
+          SizedBox(width: 12),
         ],
       ),
       body: Column(
@@ -195,8 +199,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       child: TextField(
                         controller: _textController,
                         onSubmitted: _sendMessage,
-                        decoration: const InputDecoration(
-                          hintText: 'Bir acil durum veya stok sorusu sorun...',
+                        decoration: InputDecoration(
+                          hintText: context.t('Ask about emergency procedures, first aid or supplies...', 'Bir acil durum veya stok sorusu sorun...'),
                           hintStyle: TextStyle(
                             fontSize: 13,
                             color: AppColors.textMuted,

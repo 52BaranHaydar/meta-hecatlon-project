@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import '../../models/relief_area_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../services/language_service.dart';
 import '../../services/logistics_service.dart';
 import '../../widgets/emergency_112_button.dart';
 import '../ai/ai_assistant_screen.dart';
@@ -81,20 +82,21 @@ class _MainShellState extends State<MainShell> {
 
   List<NavigationDestination> _destinationsFor(UserRole role) {
     final homeLabel = switch (role) {
-      UserRole.citizen => 'Vatandaş Ana Sayfa',
-      UserRole.carrier => 'Lojistik Paneli',
-      UserRole.admin => 'Kriz Yönetimi',
+      UserRole.citizen => context.t('Citizen Home', 'Vatandaş Ana Sayfa'),
+      UserRole.carrier => context.t('Logistics Panel', 'Lojistik Paneli'),
+      UserRole.admin => context.t('Crisis Management', 'Kriz Yönetimi'),
     };
     final mapLabel = switch (role) {
-      UserRole.citizen => 'Toplanma Alanları',
-      UserRole.carrier => 'Sevkiyat Haritası',
-      UserRole.admin => 'Afet Haritası',
+      UserRole.citizen => context.t('Relief Shelters', 'Toplanma Alanları'),
+      UserRole.carrier => context.t('Shipment Map', 'Sevkiyat Haritası'),
+      UserRole.admin => context.t('Disaster Map', 'Afet Haritası'),
     };
     final triageLabel = switch (role) {
-      UserRole.citizen => 'AI Triage',
-      UserRole.carrier => 'İhtiyaç Analizi',
-      UserRole.admin => 'İhbar Analizi',
+      UserRole.citizen => context.t('AI Triage', 'AI Triage'),
+      UserRole.carrier => context.t('Needs Analysis', 'İhtiyaç Analizi'),
+      UserRole.admin => context.t('Triage Reports', 'İhbar Analizi'),
     };
+    final assistantLabel = context.t('Llama Assistant', 'Llama Asistan');
 
     NavigationDestination destination(IconData icon, String label) {
       return NavigationDestination(
@@ -108,7 +110,7 @@ class _MainShellState extends State<MainShell> {
       destination(role.icon, homeLabel),
       destination(Icons.map_outlined, mapLabel),
       destination(Icons.psychology_outlined, triageLabel),
-      destination(Icons.auto_awesome_outlined, 'Llama Asistan'),
+      destination(Icons.auto_awesome_outlined, assistantLabel),
     ];
   }
 
@@ -175,8 +177,8 @@ class _MainShellState extends State<MainShell> {
                     children: [
                       Text(
                         user.role == UserRole.carrier
-                            ? 'LOJİSTİK KOKPİTİ'
-                            : 'AFET DESTEK',
+                            ? context.t('LOGISTICS COCKPIT', 'LOJİSTİK KOKPİTİ')
+                            : context.t('DISASTER RELIEF', 'AFET DESTEK'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
@@ -184,7 +186,7 @@ class _MainShellState extends State<MainShell> {
                         ),
                       ),
                       Text(
-                        '${user.role.title} • ${user.email}',
+                        '${context.t(user.role.enTitle, user.role.title)} • ${user.email}',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -198,10 +200,12 @@ class _MainShellState extends State<MainShell> {
               ],
             ),
             actions: [
+              const LanguageToggleButton(compact: true),
+              const SizedBox(width: 8),
               if (user.role != UserRole.carrier)
                 const Emergency112Button(compact: true),
               IconButton(
-                tooltip: 'Çıkış Yap',
+                tooltip: context.t('Log Out', 'Çıkış Yap'),
                 icon: const Icon(Icons.logout_rounded, size: 20),
                 onPressed: _handleLogout,
               ),
