@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import '../../constants/app_colors.dart';
 import '../../models/relief_area_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
@@ -133,77 +132,6 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  void _showRoleSwitcherDialog(BuildContext context, UserModel currentUser) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Row(
-          children: const [
-            Icon(Icons.switch_account_rounded, color: AppColors.primaryBlue),
-            SizedBox(width: 8),
-            Text(
-              'Rol Değiştir (Demo)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Hackathon sunumunda tüm rolleri test etmek için anlık rol değiştirebilirsiniz:',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            ...UserRole.values.map((role) {
-              final isCurrent = currentUser.role == role;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: isCurrent
-                      ? role.color.withValues(alpha: 0.1)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isCurrent ? role.color : AppColors.border,
-                    width: isCurrent ? 2 : 1,
-                  ),
-                ),
-                child: ListTile(
-                  leading: Icon(role.icon, color: role.color),
-                  title: Text(
-                    role.title,
-                    style: TextStyle(
-                      fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
-                      color: isCurrent ? role.color : AppColors.textPrimary,
-                    ),
-                  ),
-                  trailing: isCurrent
-                      ? Icon(Icons.check_circle_rounded, color: role.color)
-                      : null,
-                  onTap: () {
-                    _authService.switchDemoRole(role);
-                    Navigator.pop(ctx);
-                  },
-                ),
-              );
-            }),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Kapat',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _handleLogout() {
     _authService.logout();
     Navigator.of(context).pushAndRemoveUntil(
@@ -217,7 +145,10 @@ class _MainShellState extends State<MainShell> {
     return ListenableBuilder(
       listenable: _authService,
       builder: (context, _) {
-        final user = _authService.currentUser ?? AuthService.demoUsers.first;
+        final user = _authService.currentUser;
+        if (user == null) {
+          return const LoginScreen();
+        }
 
         return Scaffold(
           appBar: AppBar(
@@ -235,36 +166,34 @@ class _MainShellState extends State<MainShell> {
                   child: Icon(user.role.icon, color: user.role.color, size: 20),
                 ),
                 const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'AFET DESTEK',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                        letterSpacing: -0.3,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'AFET DESTEK',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          letterSpacing: -0.3,
+                        ),
                       ),
-                    ),
-                    Text(
-                      user.role.title,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: user.role.color,
+                      Text(
+                        '${user.role.title} • ${user.email}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: user.role.color,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
             actions: [
               const Emergency112Button(compact: true),
-              IconButton(
-                tooltip: 'Rol Değiştir (Demo)',
-                icon: const Icon(Icons.swap_horiz_rounded),
-                onPressed: () => _showRoleSwitcherDialog(context, user),
-              ),
               IconButton(
                 tooltip: 'Çıkış Yap',
                 icon: const Icon(Icons.logout_rounded, size: 20),

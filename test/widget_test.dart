@@ -10,26 +10,25 @@ void main() {
     expect(find.text('Giriş Yap'), findsWidgets);
   });
 
-  testWidgets('role changes open the matching role home tab', (
-    WidgetTester tester,
-  ) async {
-    final authService = AuthService();
-    addTearDown(authService.logout);
-    authService.switchDemoRole(UserRole.citizen);
-
-    await tester.pumpWidget(const AfetDestekApp());
-    await tester.pump();
-    expect(find.text('Vatandaş Ana Sayfa'), findsOneWidget);
-    expect(find.text('Yakın Toplanma Alanları'), findsOneWidget);
-
-    authService.switchDemoRole(UserRole.carrier);
-    await tester.pump();
-    expect(find.text('Lojistik Paneli'), findsOneWidget);
-    expect(find.text('Meta AI Önerilen Teslimat Noktası'), findsOneWidget);
-
-    authService.switchDemoRole(UserRole.admin);
-    await tester.pump();
-    expect(find.text('Kriz Yönetimi'), findsOneWidget);
-    expect(find.text('Gelen Yardım İhbarları (Meta AI)'), findsOneWidget);
+  test('email role resolution enforces Firebase role rules', () {
+    expect(
+      AuthService.resolveRoleForEmail('vatandas@ornek.com', UserRole.citizen),
+      UserRole.citizen,
+    );
+    expect(
+      AuthService.resolveRoleForEmail('lojistik@ornek.com', UserRole.carrier),
+      UserRole.carrier,
+    );
+    expect(
+      AuthService.resolveRoleForEmail('vatandas@ornek.com', UserRole.admin),
+      UserRole.citizen,
+    );
+    expect(
+      AuthService.resolveRoleForEmail(
+        'baranhaydar80@gmail.com',
+        UserRole.citizen,
+      ),
+      UserRole.admin,
+    );
   });
 }

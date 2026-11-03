@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:latlong2/latlong.dart';
 import '../../constants/app_colors.dart';
+import '../../models/ai_triage_model.dart';
+import '../../services/crisis_data_service.dart';
 import '../../models/relief_area_model.dart';
 import '../../models/user_model.dart';
 import '../../services/location_service.dart';
 import '../../services/safety_circle_service.dart';
 import '../../services/safety_sms_service.dart';
-import '../../widgets/common_widgets.dart';
 
 class CitizenHomeScreen extends StatefulWidget {
   final UserModel user;
@@ -998,66 +999,411 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
   }
 
   void _showHelpRequestModal(BuildContext context) {
-    final textCtrl = TextEditingController();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _CitizenHelpRequestSheet(user: widget.user),
+    );
+  }
+}
+
+class _CitizenHelpRequestSheet extends StatefulWidget {
+  final UserModel user;
+
+  const _CitizenHelpRequestSheet({required this.user});
+
+  @override
+  State<_CitizenHelpRequestSheet> createState() => _CitizenHelpRequestSheetState();
+}
+
+class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
+  final _textCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController(text: 'Şehitkamil Merkez, Gaziantep');
+  final _crisisService = CrisisDataService();
+
+  LatLng? _currentGps;
+  bool _isLoadingGps = true;
+  bool _isSubmitting = false;
+
+  final List<Map<String, String>> _presetTemplates = [
+    {
+      'label': '🚨 Enkaz Altında Ses Var',
+      'text': 'Binanın 2. katında çökme var, içeride 3 kişilik bir aile ses veriyor. Acil arama kurtarma ekibi ve dinleme cihazı gerekiyor!',
+    },
+    {
+      'label': '🩺 Acil İlaç & Medikal',
+      'text': 'Kronik kalp ve şeker hastamız var, acil insülin ve tansiyon ilacına ihtiyaç duyuyoruz. Ambulans sevk edilmeli.',
+    },
+    {
+      'label': '🍼 Bebek Maması & Su',
+      'text': 'Bulunduğumuz toplanma noktasında içme suyu tükendi ve bebekler için mama ile çocuk bezi ihtiyacımız var.',
+    },
+    {
+      'label': '⛺ Çadır & Isıtıcı',
+      'text': 'Evimiz hasarlı ve dışarıdayız. Hava çok soğuk, 2 aile için kışlık çadır, soba ve battaniye talep ediyoruz.',
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchGpsLocation();
+  }
+
+  @override
+  void dispose() {
+    _textCtrl.dispose();
+    _locationCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchGpsLocation() async {
+    try {
+      final loc = await LocationService.getCurrentLocation();
+      if (!mounted) return;
+      setState(() {
+        _currentGps = loc;
+        _isLoadingGps = false;
+        _locationCtrl.text = 'GPS: ${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)} (Şehitkamil, Gaziantep)';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingGps = false;
+      });
+    }
+  }
+
+  Future<void> _submitReport() async {
+    final text = _textCtrl.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lütfen durumunuzu açıklayan bir mesaj yazınız.'),
+          backgroundColor: AppColors.emergencyRed,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final result = await _crisisService.classifyAndSubmitReport(
+        text,
+        location: _locationCtrl.text.trim(),
+        citizenName: widget.user.name,
+        citizenEmail: widget.user.email,
+        citizenPhone: widget.user.phone,
+        latitude: _currentGps?.latitude,
+        longitude: _currentGps?.longitude,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close bottom sheet
+
+      // Show AI Result Confirmation Dialog
+      _showAiResultDialog(result);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('İhbar iletilirken bir hata oluştu: $e'),
+          backgroundColor: AppColors.emergencyRed,
+        ),
+      );
+    }
+  }
+
+  void _showAiResultDialog(AiTriageResult result) {
+    showDialog(
+      context: context,
+      builder: (dlgContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: result.urgency.color.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(result.urgency.icon, color: result.urgency.color, size: 24),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('İhbar AFAD\'a İletildi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  Text(
+                    'Meta AI Triyaj Raporu (#${result.id})',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          result.category,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryBlue,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: result.urgency.color,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            result.urgency.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '"${result.rawText}"',
+                      style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('Meta AI Müdahale Protokolü:', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              const SizedBox(height: 4),
+              Text(result.recommendedAction, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+              const SizedBox(height: 12),
+              const Text('Talep Edilen Kaynaklar:', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: result.requiredResources.map((res) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(res, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primaryBlue)),
+                )).toList(),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'İhbarınız Firebase veritabanına ve AFAD Kriz Masası ekranına canlı olarak düştü.',
+                        style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dlgContext),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        18,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: const [
-                Icon(
-                  Icons.report_problem_rounded,
-                  color: AppColors.emergencyRed,
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                SizedBox(width: 8),
-                Text(
-                  'Acil Yardım Talebi',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.emergencyRed.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.emergency_rounded, color: AppColors.emergencyRed, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Acil Yardım Talebi',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        'Meta AI Llama 3 ile anlık triyaj ve AFAD sevkiyatı',
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Durumunuzu kısaca yazın. Meta AI mesajınızı aciliyetine göre (enkaz, sağlık, su/gıda, barınma) otomatik sınıflandıracaktır.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
             const SizedBox(height: 16),
-            TextField(
-              controller: textCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText:
-                    'Örn: Binamızın önünde su ve bebek mamasına acil ihtiyaç var, 3 aileyiz...',
+
+            // Quick Preset Templates
+            const Text(
+              'Hızlı Durum Şablonları (Dokunarak Seçebilirsiniz):',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _presetTemplates.map((tmpl) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ActionChip(
+                      label: Text(tmpl['label']!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      onPressed: () {
+                        setState(() {
+                          _textCtrl.text = tmpl['text']!;
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
               ),
             ),
-            const SizedBox(height: 16),
-            CustomPrimaryButton(
-              text: 'Yardım Çağrısını Gönder (AI Sınıflandırma)',
-              color: AppColors.emergencyRed,
-              onPressed: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Yardım talebiniz Meta AI (classifyReport) ile acil olarak kriz merkezine iletildi!',
+            const SizedBox(height: 14),
+
+            // Text input field
+            TextField(
+              controller: _textCtrl,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: 'Durumunuzu / İhtiyacınızı Yazın',
+                hintText: 'Örn: Binanın 2. katında çökme var, içeride 3 kişilik bir aile ses veriyor...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Location field
+            TextField(
+              controller: _locationCtrl,
+              decoration: InputDecoration(
+                labelText: 'Konum / Adres Bilgisi',
+                prefixIcon: const Icon(Icons.pin_drop_rounded, color: AppColors.primaryBlue),
+                suffixIcon: _isLoadingGps
+                    ? const Padding(
+                        padding: EdgeInsets.all(12.0),
+                        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.my_location_rounded),
+                        onPressed: _fetchGpsLocation,
+                        tooltip: 'GPS Konumumu Güncelle',
+                      ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Submit Button
+            ElevatedButton(
+              onPressed: _isSubmitting ? null : _submitReport,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.emergencyRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 2,
+              ),
+              child: _isSubmitting
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                        SizedBox(width: 12),
+                        Text('Meta AI Analiz Ediyor & AFAD\'a İletiyor...', style: TextStyle(fontWeight: FontWeight.w800)),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.send_rounded, size: 20),
+                        SizedBox(width: 8),
+                        Text('AFAD\'A İLET (AI Sınıflandır)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                      ],
                     ),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              },
             ),
           ],
         ),

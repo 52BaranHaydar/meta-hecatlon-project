@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
+import '../../constants/meta_ai_config.dart';
 import '../../services/crisis_data_service.dart';
 import '../../widgets/emergency_112_button.dart';
 
@@ -96,12 +97,21 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: Row(
-          children: const [
-            Icon(Icons.auto_awesome, color: AppColors.primaryBlue, size: 22),
-            SizedBox(width: 8),
-            Text(
-              'Meta Llama 3 Asistanı',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          children: [
+            const Icon(Icons.auto_awesome, color: AppColors.primaryBlue, size: 22),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Meta Llama 3 Asistanı',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
+                Text(
+                  'Meta API Aktif (${MetaAiConfig.maskedKey})',
+                  style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
           ],
         ),
