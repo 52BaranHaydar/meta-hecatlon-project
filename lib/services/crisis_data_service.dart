@@ -36,6 +36,27 @@ class CrisisDataService extends ChangeNotifier {
   int get dispatchedReportsCount =>
       _reports.where((r) => r.status == 'Ekip Yönlendirildi').length;
 
+  int get resolvedReportsCount => _reports
+      .where((r) => r.status == 'Çözüldü' || r.status.contains('Kurtarıldı'))
+      .length;
+
+  int get openCollapseReportsCount => _reports
+      .where((r) =>
+          (r.category.toLowerCase().contains('enkaz') ||
+              r.category.toLowerCase().contains('çökme') ||
+              r.rawText.toLowerCase().contains('enkaz') ||
+              r.rawText.toLowerCase().contains('çök')) &&
+          r.status != 'Çözüldü')
+      .length;
+
+  AiTriageResult? get mostCriticalReport {
+    final criticals = _reports
+        .where((r) => r.urgency == UrgencyLevel.critical && r.status != 'Çözüldü')
+        .toList();
+    if (criticals.isEmpty) return null;
+    return criticals.first;
+  }
+
   FirebaseFirestore? get _firestore {
     try {
       return FirebaseFirestore.instance;
@@ -399,7 +420,7 @@ class CrisisDataService extends ChangeNotifier {
     );
 
     _areas.insert(0, newArea);
-    ReliefAreaModel.demoAreas.insert(0, newArea);
+    ReliefAreaModel.addDemoArea(newArea);
     notifyListeners();
 
     try {

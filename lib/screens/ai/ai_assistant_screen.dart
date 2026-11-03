@@ -129,6 +129,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
+                  _quickPromptChip('📊 Afet Durum Özeti & Kriz Raporu'),
                   _quickPromptChip('⛺ Boş Toplanma Alanları & Stok'),
                   _quickPromptChip('🩹 Kanamaya İlk Yardım'),
                   _quickPromptChip('🏚️ Enkaz Altında Ne Yapmalı?'),

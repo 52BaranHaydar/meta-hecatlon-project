@@ -218,6 +218,21 @@ JSON Şeması:
         'source': 'AFAD Enkaz Altında Hayatta Kalma Kılavuzu',
         'isEmergency': false,
       };
+    } else if (lower.contains('rapor') ||
+        lower.contains('özet') ||
+        lower.contains('brifing') ||
+        lower.contains('durum')) {
+      final safeCount = areas.length;
+      return {
+        'text':
+            '📊 AFAD KRİZ MASASI & META AI CANLI AFET BRİFİNGİ:\n\n'
+            '• Aktif Güvenli Bölge: $safeCount adet toplanma alanı ve çadır kent sahası tam kapasite hizmet vermektedir.\n'
+            '• Arama Kurtarma: Vatandaşlardan gelen ihbarlar Meta Llama 3 triyaj motoru ile anlık analiz edilmekte, kırmızı kodlu enkaz bildirimlerine öncelikli ekip sevk edilmektedir.\n'
+            '• Lojistik & Stok Dengesi: Tır şoförleri AFAD toplanma alanlarındaki anlık su ve çadır açıklarına göre otomatik rota optimizasyonuyla yönlendirilmektedir.\n'
+            '• Koordinasyon: AFAD komuta merkezi ile saha ekipleri tek birleşik veri hattı üzerinden kesintisiz yönetilmektedir.',
+        'source': 'Meta AI Llama 3 • Kriz Masası Otomatik Durum Raporu',
+        'isEmergency': false,
+      };
     } else if (lower.contains('toplanma') ||
         lower.contains('çadır') ||
         lower.contains('nereye') ||
