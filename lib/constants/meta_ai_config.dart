@@ -1,7 +1,7 @@
 class MetaAiConfig {
   static const String apiKey = String.fromEnvironment(
     'META_API_KEY',
-    defaultValue: 'LLM_1420775716376133_sxB1vXIF74rVhTvo68O9F9faXpE',
+    defaultValue: 'LLM_28824693343848975_VTvZbn3AH0-JxbKFc415zujrBzo',
   );
 
   static const String defaultModel = 'Meta-Llama-3-70B-Instruct';

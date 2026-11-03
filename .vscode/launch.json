@@ -2,11 +2,18 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Afet Destek (Varsayılan Cihaz)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=secret.json"]
+    },
+    {
       "name": "Afet Destek (Android Emülatör)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "deviceId": "emulator",
+      "deviceId": "emulator-5554",
       "toolArgs": ["--dart-define-from-file=secret.json"]
     },
     {
@@ -15,13 +22,6 @@
       "type": "dart",
       "program": "lib/main.dart",
       "deviceId": "chrome",
-      "toolArgs": ["--dart-define-from-file=secret.json"]
-    },
-    {
-      "name": "Afet Destek (Otomatik)",
-      "request": "launch",
-      "type": "dart",
-      "program": "lib/main.dart",
       "toolArgs": ["--dart-define-from-file=secret.json"]
     }
   ]
