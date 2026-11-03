@@ -4,6 +4,7 @@ import '../../constants/app_colors.dart';
 import '../../models/relief_area_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../services/logistics_service.dart';
 import '../../widgets/emergency_112_button.dart';
 import '../ai/ai_assistant_screen.dart';
 import '../ai/ai_triage_screen.dart';
@@ -22,6 +23,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   final _authService = AuthService();
+  final _logisticsService = LogisticsService();
   int _currentIndex = 0;
   UserRole? _lastRole;
   ReliefAreaModel? _selectedMapArea;
@@ -38,6 +40,7 @@ class _MainShellState extends State<MainShell> {
   @override
   void dispose() {
     _authService.removeListener(_handleAuthChanged);
+    _logisticsService.dispose();
     super.dispose();
   }
 
@@ -238,8 +241,10 @@ class _MainShellState extends State<MainShell> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'AFET DESTEK',
+                    Text(
+                      user.role == UserRole.carrier
+                          ? 'LOJİSTİK KOKPİTİ'
+                          : 'AFET DESTEK',
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 16,
@@ -259,7 +264,8 @@ class _MainShellState extends State<MainShell> {
               ],
             ),
             actions: [
-              const Emergency112Button(compact: true),
+              if (user.role != UserRole.carrier)
+                const Emergency112Button(compact: true),
               IconButton(
                 tooltip: 'Rol Değiştir (Demo)',
                 icon: const Icon(Icons.swap_horiz_rounded),
@@ -320,11 +326,13 @@ class _MainShellState extends State<MainShell> {
       case UserRole.carrier:
         return CarrierHomeScreen(
           user: user,
+          logisticsService: _logisticsService,
           onNavigateToMap: _navigateToMapWithArea,
         );
       case UserRole.admin:
         return AdminHomeScreen(
           user: user,
+          logisticsService: _logisticsService,
           onNavigateToMap: _navigateToMapWithArea,
         );
     }

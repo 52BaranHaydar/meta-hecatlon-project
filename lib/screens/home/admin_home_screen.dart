@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/ai_triage_model.dart';
 import '../../models/relief_area_model.dart';
+import '../../models/shipment_model.dart';
 import '../../models/user_model.dart';
 import '../../services/crisis_data_service.dart';
+import '../../services/logistics_service.dart';
 import '../../widgets/common_widgets.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   final UserModel user;
+  final LogisticsService logisticsService;
   final void Function(ReliefAreaModel? area)? onNavigateToMap;
 
   const AdminHomeScreen({
     super.key,
     required this.user,
+    required this.logisticsService,
     this.onNavigateToMap,
   });
 
@@ -22,7 +26,8 @@ class AdminHomeScreen extends StatefulWidget {
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final CrisisDataService _crisisService = CrisisDataService();
-  String _selectedFilter = 'ALL'; // 'ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'RESOLVED'
+  String _selectedFilter =
+      'ALL'; // 'ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'RESOLVED'
 
   List<AiTriageResult> _getFilteredReports(List<AiTriageResult> all) {
     switch (_selectedFilter) {
@@ -177,7 +182,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      icon: const Icon(Icons.add_location_alt_rounded, size: 18),
+                      icon: const Icon(
+                        Icons.add_location_alt_rounded,
+                        size: 18,
+                      ),
                       label: const Text(
                         'Toplanma Alanı Ekle',
                         style: TextStyle(fontWeight: FontWeight.w800),
@@ -208,6 +216,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 22),
+
+              _buildShipmentMonitor(),
               const SizedBox(height: 22),
 
               // Incoming AI Classified Reports Section
@@ -255,7 +266,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildFilterChip('ALL', 'Tümü (${_crisisService.reports.length})'),
+                    _buildFilterChip(
+                      'ALL',
+                      'Tümü (${_crisisService.reports.length})',
+                    ),
                     _buildFilterChip('CRITICAL', '🚨 Kritik'),
                     _buildFilterChip('HIGH', '⚠️ Yüksek'),
                     _buildFilterChip('MEDIUM', 'ℹ️ Orta/Düşük'),
@@ -328,6 +342,92 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         );
       },
     );
+  }
+
+  Widget _buildShipmentMonitor() {
+    return ListenableBuilder(
+      listenable: widget.logisticsService,
+      builder: (context, _) {
+        final shipments = widget.logisticsService.shipments;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Canlı Sevkiyat Takibi',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                if (widget.logisticsService.syncError == null)
+                  const Chip(
+                    avatar: Icon(
+                      Icons.circle,
+                      size: 8,
+                      color: AppColors.success,
+                    ),
+                    label: Text('Canlı'),
+                  ),
+              ],
+            ),
+            if (widget.logisticsService.syncError case final error?)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  error,
+                  style: const TextStyle(color: AppColors.emergencyRed),
+                ),
+              ),
+            if (shipments.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Henüz kayıtlı sevkiyat yok.'),
+                ),
+              )
+            else
+              ...shipments.map((shipment) {
+                final status = _shipmentStatusLabel(shipment.status);
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const Icon(
+                      Icons.local_shipping_rounded,
+                      color: AppColors.adminPurple,
+                    ),
+                    title: Text(
+                      '${shipment.plateNumber} · ${shipment.quantity} '
+                      '${ShipmentModel.unitFor(shipment.category)} '
+                      '${shipment.category}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      'Hedef: ${shipment.destination}\n'
+                      '${shipment.vehicleType} · $status',
+                    ),
+                    isThreeLine: true,
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
+
+  String _shipmentStatusLabel(ShipmentStatus status) {
+    return switch (status) {
+      ShipmentStatus.hazir => 'Sevkiyat Hazır',
+      ShipmentStatus.yolaCikti => 'Yola Çıktı',
+      ShipmentStatus.afetBolgesiGirisinde => 'Afet Bölgesi Girişinde',
+      ShipmentStatus.dagitimNoktasinaUlasti => 'Dağıtım Noktasına Ulaştı',
+      ShipmentStatus.teslimEdildi => 'Teslim Edildi',
+    };
   }
 
   Widget _buildFilterChip(String key, String label) {
@@ -584,10 +684,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        _crisisService.updateReportStatus(
-                          report.id,
-                          'Çözüldü',
-                        );
+                        _crisisService.updateReportStatus(report.id, 'Çözüldü');
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -724,10 +821,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 decoration: const InputDecoration(labelText: 'Alan Kategorisi'),
                 items: AreaCategory.values
                     .map(
-                      (c) => DropdownMenuItem(
-                        value: c,
-                        child: Text(c.title),
-                      ),
+                      (c) => DropdownMenuItem(value: c, child: Text(c.title)),
                     )
                     .toList(),
                 onChanged: (val) {
@@ -831,10 +925,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     .map(
                       (a) => DropdownMenuItem(
                         value: a.id,
-                        child: Text(
-                          a.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: Text(a.name, overflow: TextOverflow.ellipsis),
                       ),
                     )
                     .toList(),
@@ -862,18 +953,32 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               CustomPrimaryButton(
                 text: 'Stok Durumunu Canlı Güncelle',
                 color: AppColors.adminPurple,
-                onPressed: () {
+                onPressed: () async {
                   if (itemCtrl.text.trim().isEmpty ||
                       qtyCtrl.text.trim().isEmpty) {
                     return;
                   }
-                  _crisisService.updateAreaStock(
-                    areaId: selectedAreaId,
-                    itemKey: itemCtrl.text,
-                    quantity: qtyCtrl.text,
-                  );
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(ctx);
+                  try {
+                    await _crisisService.updateAreaStock(
+                      areaId: selectedAreaId,
+                      itemKey: itemCtrl.text,
+                      quantity: qtyCtrl.text,
+                    );
+                  } catch (error) {
+                    if (!mounted || !ctx.mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Stok güncellenemedi: $error'),
+                        backgroundColor: AppColors.emergencyRed,
+                      ),
+                    );
+                    return;
+                  }
+                  if (!mounted || !ctx.mounted) return;
+                  navigator.pop();
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text(
                         'Stok verisi canlı olarak ve Firebase üzerinde güncellendi!',
