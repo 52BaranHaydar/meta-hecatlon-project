@@ -59,22 +59,33 @@ class CrisisDataService extends ChangeNotifier {
         }
         notifyListeners();
       }
-
-      final areasSnap = await db.collection('areas').get();
-      if (areasSnap.docs.isNotEmpty) {
-        for (final doc in areasSnap.docs) {
-          final fa = ReliefAreaModel.fromMap(doc.data(), docId: doc.id);
-          final existingIdx = _areas.indexWhere((a) => a.id == fa.id);
-          if (existingIdx >= 0) {
-            _areas[existingIdx] = fa;
-          } else {
-            _areas.add(fa);
-          }
-        }
-        notifyListeners();
-      }
     } catch (e) {
-      debugPrint('Firestore initial sync note: $e');
+      debugPrint('Firestore report sync note: $e');
+    }
+
+    try {
+      db
+          .collection('areas')
+          .snapshots()
+          .listen(
+            (areasSnap) {
+              for (final doc in areasSnap.docs) {
+                final area = ReliefAreaModel.fromMap(doc.data(), docId: doc.id);
+                final index = _areas.indexWhere((item) => item.id == area.id);
+                if (index >= 0) {
+                  _areas[index] = area;
+                } else {
+                  _areas.add(area);
+                }
+              }
+              notifyListeners();
+            },
+            onError: (Object error, StackTrace stackTrace) {
+              debugPrint('Firestore area stream error: $error');
+            },
+          );
+    } catch (error) {
+      debugPrint('Firestore area sync note: $error');
     }
   }
 
@@ -262,7 +273,10 @@ class CrisisDataService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _firestore?.collection('areas').doc(newArea.id).set(newArea.toMap());
+      await _firestore
+          ?.collection('areas')
+          .doc(newArea.id)
+          .set(newArea.toMap());
     } catch (e) {
       debugPrint('Firestore add area note: $e');
     }
@@ -277,28 +291,40 @@ class CrisisDataService extends ChangeNotifier {
     required String quantity,
   }) async {
     final idx = _areas.indexWhere((a) => a.id == areaId);
-    if (idx < 0) return;
+    if (idx < 0) {
+      throw ArgumentError.value(areaId, 'areaId', 'Toplanma alanı bulunamadı.');
+    }
 
     final current = _areas[idx];
     final updatedStock = Map<String, String>.from(current.stock);
     updatedStock[itemKey.trim()] = quantity.trim();
 
     final updatedArea = current.copyWith(stock: updatedStock);
-    _areas[idx] = updatedArea;
-    final demoIdx = ReliefAreaModel.demoAreas.indexWhere((a) => a.id == areaId);
-    if (demoIdx >= 0) {
-      ReliefAreaModel.demoAreas[demoIdx] = updatedArea;
-    }
-    notifyListeners();
-
-    try {
-      await _firestore
-          ?.collection('areas')
+    final db = _firestore;
+    if (db != null) {
+      await db
+          .collection('areas')
           .doc(areaId)
           .set(updatedArea.toMap(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('Firestore stock update note: $e');
     }
+    applyAreaUpdate(updatedArea);
+  }
+
+  void applyAreaUpdate(ReliefAreaModel updatedArea) {
+    final index = _areas.indexWhere((area) => area.id == updatedArea.id);
+    if (index >= 0) {
+      _areas[index] = updatedArea;
+    } else {
+      _areas.add(updatedArea);
+    }
+
+    final demoIndex = ReliefAreaModel.demoAreas.indexWhere(
+      (area) => area.id == updatedArea.id,
+    );
+    if (demoIndex >= 0) {
+      ReliefAreaModel.demoAreas[demoIndex] = updatedArea;
+    }
+    notifyListeners();
   }
 
   /// Meta Llama 3 Context-Aware Assistant (RAG with Live Areas & Stock Data)
@@ -331,11 +357,15 @@ class CrisisDataService extends ChangeNotifier {
         lower.contains('alan') ||
         lower.contains('boş') ||
         lower.contains('stok')) {
-      final topAreas = _areas.take(3).map((a) {
-        final stockSummary =
-            a.stock.entries.map((e) => '${e.key}: ${e.value}').join(', ');
-        return '• ${a.name} (Boş Kapasite: ${a.availableSpots} kişi | Stok: $stockSummary)';
-      }).join('\n');
+      final topAreas = _areas
+          .take(3)
+          .map((a) {
+            final stockSummary = a.stock.entries
+                .map((e) => '${e.key}: ${e.value}')
+                .join(', ');
+            return '• ${a.name} (Boş Kapasite: ${a.availableSpots} kişi | Stok: $stockSummary)';
+          })
+          .join('\n');
       return {
         'text':
             'Şu an sistemde kayıtlı toplam ${_areas.length} güvenli alan bulunmaktadır. En uygun noktalar:\n$topAreas\n\nHarita sekmesinden tek tıkla güvenli yaya rotasını başlatabilirsiniz.',
