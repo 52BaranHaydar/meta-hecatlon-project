@@ -7,9 +7,12 @@ import 'package:flutter/foundation.dart'
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 class DefaultFirebaseOptions {
+  static const String _defaultApiKey =
+      'AIzaSyANEeVFxvraFP8hooLTbkeOcQIwLUAULvg';
+
   static const String _apiKey = String.fromEnvironment(
     'FIREBASE_API_KEY',
-    defaultValue: '',
+    defaultValue: _defaultApiKey,
   );
 
   static bool get hasConfiguredApiKey => _apiKey.isNotEmpty;

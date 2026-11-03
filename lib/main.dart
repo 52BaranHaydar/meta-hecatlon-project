@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'constants/app_theme.dart';
 import 'firebase_options.dart';
@@ -10,7 +11,7 @@ import 'services/language_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    if (DefaultFirebaseOptions.hasConfiguredApiKey) {
+    if (kIsWeb || DefaultFirebaseOptions.hasConfiguredApiKey) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );

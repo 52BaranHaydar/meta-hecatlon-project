@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
@@ -21,8 +22,27 @@ class AuthService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  FirebaseAuth get _firebaseAuth => FirebaseAuth.instance;
-  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+  FirebaseAuth? get _firebaseAuth {
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        return FirebaseAuth.instance;
+      }
+    } catch (e) {
+      debugPrint('FirebaseAuth instance note: $e');
+    }
+    return null;
+  }
+
+  FirebaseFirestore? get _firestore {
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        return FirebaseFirestore.instance;
+      }
+    } catch (e) {
+      debugPrint('FirebaseFirestore instance note: $e');
+    }
+    return null;
+  }
 
   /// Only specific authorized emails are granted AFAD / Admin role
   static bool isAuthorizedAdminEmail(String email) {
@@ -49,7 +69,9 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _restoreSession() async {
     try {
-      final fbUser = _firebaseAuth.currentUser;
+      final auth = _firebaseAuth;
+      if (auth == null) return;
+      final fbUser = auth.currentUser;
       if (fbUser != null && fbUser.email != null) {
         _currentUser = await _loadUserProfile(fbUser);
         notifyListeners();
@@ -69,16 +91,19 @@ class AuthService extends ChangeNotifier {
 
     // 1. Try reading from Firestore 'users/{uid}'
     try {
-      final doc = await _firestore.collection('users').doc(fbUser.uid).get();
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        final loaded = UserModel.fromMap(data, id: fbUser.uid);
-        final enforcedRole = isAuthorizedAdminEmail(email)
-            ? UserRole.admin
-            : loaded.role;
-        final finalUser = loaded.copyWith(role: enforcedRole);
-        await _cacheRoleLocally(email, finalUser.role, finalUser.name);
-        return finalUser;
+      final db = _firestore;
+      if (db != null) {
+        final doc = await db.collection('users').doc(fbUser.uid).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          final loaded = UserModel.fromMap(data, id: fbUser.uid);
+          final enforcedRole = isAuthorizedAdminEmail(email)
+              ? UserRole.admin
+              : loaded.role;
+          final finalUser = loaded.copyWith(role: enforcedRole);
+          await _cacheRoleLocally(email, finalUser.role, finalUser.name);
+          return finalUser;
+        }
       }
     } catch (e) {
       debugPrint('Firestore user read note: $e');
@@ -115,10 +140,13 @@ class AuthService extends ChangeNotifier {
 
     // Ensure Firestore document is written if missing
     try {
-      await _firestore
-          .collection('users')
-          .doc(fbUser.uid)
-          .set(model.toMap(), SetOptions(merge: true));
+      final db = _firestore;
+      if (db != null) {
+        await db
+            .collection('users')
+            .doc(fbUser.uid)
+            .set(model.toMap(), SetOptions(merge: true));
+      }
     } catch (_) {}
 
     await _cacheRoleLocally(email, model.role, model.name);
@@ -155,7 +183,27 @@ class AuthService extends ChangeNotifier {
         return false;
       }
 
-      final credential = await _firebaseAuth.signInWithEmailAndPassword(
+      final auth = _firebaseAuth;
+      if (auth == null) {
+        // Safe Web / Offline fallback login
+        final assignedRole = resolveRoleForEmail(
+          cleanEmail,
+          cleanEmail.contains('carrier') || cleanEmail.contains('nakliye')
+              ? UserRole.carrier
+              : UserRole.citizen,
+        );
+        _currentUser = UserModel(
+          uid: 'offline-${cleanEmail.hashCode}',
+          name: cleanEmail.split('@').first,
+          email: cleanEmail,
+          role: assignedRole,
+        );
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+
+      final credential = await auth.signInWithEmailAndPassword(
         email: cleanEmail,
         password: password,
       );
@@ -199,6 +247,11 @@ class AuthService extends ChangeNotifier {
           _errorMessage =
               'Firebase Console üzerinde Email/Password girişi henüz etkinleştirilmemiş.';
           break;
+        case 'unauthorized-domain':
+        case 'app-not-authorized':
+          _errorMessage =
+              'Firebase bu web domaini için henüz yetkilendirilmemiş. Hızlı demo butonlarını kullanarak giriş yapabilirsiniz.';
+          break;
         default:
           _errorMessage = 'Firebase giriş hatası: ${e.message ?? e.code}';
       }
@@ -237,7 +290,25 @@ class AuthService extends ChangeNotifier {
 
       final assignedRole = resolveRoleForEmail(cleanEmail, role);
 
-      final credential = await _firebaseAuth.createUserWithEmailAndPassword(
+      final auth = _firebaseAuth;
+      if (auth == null) {
+        // Safe Web / Offline fallback register
+        final newUser = UserModel(
+          uid: 'offline-${cleanEmail.hashCode}',
+          name: name.trim(),
+          email: cleanEmail,
+          phone: phone?.trim(),
+          role: assignedRole,
+          createdAt: DateTime.now(),
+        );
+        await _cacheRoleLocally(cleanEmail, assignedRole, name.trim());
+        _currentUser = newUser;
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+
+      final credential = await auth.createUserWithEmailAndPassword(
         email: cleanEmail,
         password: password,
       );
@@ -263,13 +334,16 @@ class AuthService extends ChangeNotifier {
 
       await _cacheRoleLocally(cleanEmail, assignedRole, name.trim());
 
-      try {
-        await _firestore
-            .collection('users')
-            .doc(fbUser.uid)
-            .set(newUser.toMap());
-      } catch (fe) {
-        debugPrint('Firestore user write note: $fe');
+      final db = _firestore;
+      if (db != null) {
+        try {
+          await db
+              .collection('users')
+              .doc(fbUser.uid)
+              .set(newUser.toMap());
+        } catch (fe) {
+          debugPrint('Firestore user write note: $fe');
+        }
       }
 
       _currentUser = newUser;
@@ -314,7 +388,14 @@ class AuthService extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+      final auth = _firebaseAuth;
+      if (auth == null) {
+        _errorMessage = 'Firebase servisine ulaşılamıyor (Çevrimdışı mod).';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      await auth.sendPasswordResetEmail(email: email.trim());
       _isLoading = false;
       notifyListeners();
       return true;
@@ -331,12 +412,16 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  @visibleForTesting
   void switchDemoRole(UserRole role) {
+    final roleName = role == UserRole.admin
+        ? 'AFAD Kriz Masası'
+        : (role == UserRole.carrier ? 'Ahmet Nakliye' : 'Vatandaş Ayşe');
     _currentUser = UserModel(
-      uid: 'demo-',
-      name: 'Demo ',
-      email: role == UserRole.admin ? 'baranhaydar80@gmail.com' : 'demo@afet.org',
+      uid: 'demo-${role.id}',
+      name: roleName,
+      email: role == UserRole.admin
+          ? 'baranhaydar80@gmail.com'
+          : '${role.id}@afet.org',
       role: role,
     );
     notifyListeners();
@@ -344,7 +429,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      await _firebaseAuth.signOut();
+      await _firebaseAuth?.signOut();
     } catch (_) {}
     _currentUser = null;
     notifyListeners();

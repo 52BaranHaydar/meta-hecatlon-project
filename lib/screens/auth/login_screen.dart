@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
+import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/language_service.dart';
 import '../../widgets/common_widgets.dart';
@@ -99,10 +100,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               size: 16,
                               color: Color(0xFF2563EB),
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Text(
                               context.t('META AI DISASTER COORDINATION', 'META AI AFET KOORDİNASYON'),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: Color(0xFF1D4ED8),
@@ -181,10 +182,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             keyboardType: TextInputType.emailAddress,
                             validator: (val) {
                               if (val == null || val.trim().isEmpty) {
-                                return context.t('Email cannot be empty', 'E-posta boş bırakılamaz');
+                                return context.t('Email address cannot be empty', 'E-posta adresi boş bırakılamaz');
                               }
                               if (!val.contains('@')) {
-                                return context.t('Enter a valid email', 'Geçerli bir e-posta girin');
+                                return context.t('Please enter a valid email address', 'Geçerli bir e-posta adresi giriniz');
                               }
                               return null;
                             },
@@ -267,6 +268,92 @@ class _LoginScreenState extends State<LoginScreen> {
                             icon: Icons.login_rounded,
                             isLoading: _authService.isLoading,
                             onPressed: _handleLogin,
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Quick Demo & Jury Access
+                          Row(
+                            children: [
+                              const Expanded(child: Divider()),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                child: Text(
+                                  context.t('OR QUICK DEMO ACCESS', 'VEYA HIZLI DEMO GİRİŞİ'),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const Expanded(child: Divider()),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFFDC2626),
+                                  side: const BorderSide(color: Color(0xFFFCA5A5)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                icon: const Icon(Icons.shield_outlined, size: 16),
+                                label: Text(
+                                  context.t('AFAD Admin', 'AFAD Kriz Masası'),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () {
+                                  _authService.switchDemoRole(UserRole.admin);
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(builder: (_) => const MainShell()),
+                                  );
+                                },
+                              ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF2563EB),
+                                  side: const BorderSide(color: Color(0xFF93C5FD)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                icon: const Icon(Icons.local_shipping_outlined, size: 16),
+                                label: Text(
+                                  context.t('Carrier', 'Nakliye'),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () {
+                                  _authService.switchDemoRole(UserRole.carrier);
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(builder: (_) => const MainShell()),
+                                  );
+                                },
+                              ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF059669),
+                                  side: const BorderSide(color: Color(0xFF6EE7B7)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                icon: const Icon(Icons.person_outline, size: 16),
+                                label: Text(
+                                  context.t('Citizen', 'Vatandaş'),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () {
+                                  _authService.switchDemoRole(UserRole.citizen);
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(builder: (_) => const MainShell()),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
