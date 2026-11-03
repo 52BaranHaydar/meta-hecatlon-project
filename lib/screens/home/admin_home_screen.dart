@@ -308,16 +308,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
               // Live Relief Areas & Stock Management List
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    'Aktif Toplanma Alanları & Stoklar',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                  Expanded(
+                    child: Text(
+                      'Aktif Toplanma Alanlar? & Stoklar',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () {
                       if (widget.onNavigateToMap != null) {
@@ -325,7 +330,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       }
                     },
                     icon: const Icon(Icons.map_rounded, size: 16),
-                    label: const Text('Haritada Aç'),
+                    label: const Text('Haritada A?'),
                   ),
                 ],
               ),

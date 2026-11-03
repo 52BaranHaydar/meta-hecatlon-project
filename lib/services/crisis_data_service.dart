@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/ai_triage_model.dart';
@@ -9,6 +9,7 @@ class CrisisDataService extends ChangeNotifier {
   factory CrisisDataService() => _instance;
 
   CrisisDataService._internal() {
+    ReliefAreaModel.resetDemoAreas();
     _areas = List<ReliefAreaModel>.from(ReliefAreaModel.demoAreas);
     _reports = List<AiTriageResult>.from(AiTriageResult.sampleScenarios);
     _syncFromFirestore();
@@ -21,14 +22,14 @@ class CrisisDataService extends ChangeNotifier {
   List<AiTriageResult> get reports => List.unmodifiable(_reports);
 
   int get activeReportsCount =>
-      _reports.where((r) => r.status != 'Çözüldü').length;
+      _reports.where((r) => r.status != 'Ã‡Ã¶zÃ¼ldÃ¼').length;
 
   int get criticalReportsCount => _reports
-      .where((r) => r.urgency == UrgencyLevel.critical && r.status != 'Çözüldü')
+      .where((r) => r.urgency == UrgencyLevel.critical && r.status != 'Ã‡Ã¶zÃ¼ldÃ¼')
       .length;
 
   int get dispatchedReportsCount =>
-      _reports.where((r) => r.status == 'Ekip Yönlendirildi').length;
+      _reports.where((r) => r.status == 'Ekip YÃ¶nlendirildi').length;
 
   FirebaseFirestore? get _firestore {
     try {
@@ -100,17 +101,17 @@ class CrisisDataService extends ChangeNotifier {
     final reportId = 'AI-TR-${DateTime.now().millisecondsSinceEpoch % 10000}';
     final loc = (location != null && location.trim().isNotEmpty)
         ? location.trim()
-        : 'Şehitkamil Merkez, Gaziantep';
+        : 'Åehitkamil Merkez, Gaziantep';
 
     AiTriageResult result;
 
     if (lower.contains('enkaz') ||
         lower.contains('ses') ||
-        lower.contains('çök') ||
-        lower.contains('altında') ||
+        lower.contains('Ã§Ã¶k') ||
+        lower.contains('altÄ±nda') ||
         lower.contains('gaz') ||
-        lower.contains('yangın') ||
-        lower.contains('sıkış')) {
+        lower.contains('yangÄ±n') ||
+        lower.contains('sÄ±kÄ±ÅŸ')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
@@ -118,39 +119,39 @@ class CrisisDataService extends ChangeNotifier {
         urgency: UrgencyLevel.critical,
         confidenceScore: 0.99,
         recommendedAction:
-            'Acil Arama Kurtarma (AFAD/AKUT) timi ve akustik dinleme ekibi tahsis edildi. Enkaz üstünde titreşim yaratılmamalı, doğalgaz vanaları kapatılmalıdır.',
+            'Acil Arama Kurtarma (AFAD/AKUT) timi ve akustik dinleme ekibi tahsis edildi. Enkaz Ã¼stÃ¼nde titreÅŸim yaratÄ±lmamalÄ±, doÄŸalgaz vanalarÄ± kapatÄ±lmalÄ±dÄ±r.',
         requiredResources: [
-          'Ses Dinleme Ekipmanı',
-          'K9 Kurtarma Köpeği',
-          'Hidrolik Kaldırıcı',
+          'Ses Dinleme EkipmanÄ±',
+          'K9 Kurtarma KÃ¶peÄŸi',
+          'Hidrolik KaldÄ±rÄ±cÄ±',
           'Termal Kamera',
         ],
         shouldTrigger112: true,
-        etaWindow: 'Altın İlk 4 Saat İçinde Acil Müdahale',
+        etaWindow: 'AltÄ±n Ä°lk 4 Saat Ä°Ã§inde Acil MÃ¼dahale',
         timestamp: DateTime.now(),
         location: loc,
         status: 'Bekliyor',
       );
     } else if (lower.contains('hasta') ||
-        lower.contains('ilaç') ||
-        lower.contains('insülin') ||
+        lower.contains('ilaÃ§') ||
+        lower.contains('insÃ¼lin') ||
         lower.contains('kan') ||
-        lower.contains('yaralı') ||
+        lower.contains('yaralÄ±') ||
         lower.contains('kalp') ||
         lower.contains('nefes') ||
         lower.contains('ambulans')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
-        category: 'SAĞLIK & TRAVMA',
+        category: 'SAÄLIK & TRAVMA',
         urgency: UrgencyLevel.high,
         confidenceScore: 0.95,
         recommendedAction:
-            'Sahra hastanesine acil vaka kaydı düşürüldü. Hastanın solunum yolu açık tutulmalı, kanama varsa temiz bezle baskı uygulanmalıdır.',
+            'Sahra hastanesine acil vaka kaydÄ± dÃ¼ÅŸÃ¼rÃ¼ldÃ¼. HastanÄ±n solunum yolu aÃ§Ä±k tutulmalÄ±, kanama varsa temiz bezle baskÄ± uygulanmalÄ±dÄ±r.',
         requiredResources: [
-          'İlk Yardım Çantası',
+          'Ä°lk YardÄ±m Ã‡antasÄ±',
           'Ambulans Nakli',
-          'Temel Medikal İlaçlar',
+          'Temel Medikal Ä°laÃ§lar',
         ],
         shouldTrigger112: true,
         etaWindow: 'Maksimum 25 Dakika',
@@ -160,25 +161,25 @@ class CrisisDataService extends ChangeNotifier {
       );
     } else if (lower.contains('su') ||
         lower.contains('mama') ||
-        lower.contains('gıda') ||
+        lower.contains('gÄ±da') ||
         lower.contains('yemek') ||
         lower.contains('ekmek') ||
         lower.contains('bebek')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
-        category: 'SU & TEMEL YAŞAM',
+        category: 'SU & TEMEL YAÅAM',
         urgency: UrgencyLevel.medium,
         confidenceScore: 0.91,
         recommendedAction:
-            'İhtiyaç Kriz Masası lojistik kuyruğuna eklendi. En yakın su ve gıda dağıtım konvoyu bölgeye yönlendiriliyor.',
+            'Ä°htiyaÃ§ Kriz MasasÄ± lojistik kuyruÄŸuna eklendi. En yakÄ±n su ve gÄ±da daÄŸÄ±tÄ±m konvoyu bÃ¶lgeye yÃ¶nlendiriliyor.',
         requiredResources: [
-          '0.5L İçme Suyu',
-          'Bebek Maması',
-          'Hazır Gıda Paketi',
+          '0.5L Ä°Ã§me Suyu',
+          'Bebek MamasÄ±',
+          'HazÄ±r GÄ±da Paketi',
         ],
         shouldTrigger112: false,
-        etaWindow: '1-3 Saat İçinde Teslimat',
+        etaWindow: '1-3 Saat Ä°Ã§inde Teslimat',
         timestamp: DateTime.now(),
         location: loc,
         status: 'Bekliyor',
@@ -187,14 +188,14 @@ class CrisisDataService extends ChangeNotifier {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
-        category: 'BARINMA & LOJİSTİK',
+        category: 'BARINMA & LOJÄ°STÄ°K',
         urgency: UrgencyLevel.low,
         confidenceScore: 0.87,
         recommendedAction:
-            'Bölgedeki çadır kent stok sorumlularına bildirim iletildi. Dağıtım sırasına alındı.',
-        requiredResources: ['Kışlık Battaniye', 'Çadır Matı', 'Isıtıcı'],
+            'BÃ¶lgedeki Ã§adÄ±r kent stok sorumlularÄ±na bildirim iletildi. DaÄŸÄ±tÄ±m sÄ±rasÄ±na alÄ±ndÄ±.',
+        requiredResources: ['KÄ±ÅŸlÄ±k Battaniye', 'Ã‡adÄ±r MatÄ±', 'IsÄ±tÄ±cÄ±'],
         shouldTrigger112: false,
-        etaWindow: '3-6 Saat Aralığında Teslimat',
+        etaWindow: '3-6 Saat AralÄ±ÄŸÄ±nda Teslimat',
         timestamp: DateTime.now(),
         location: loc,
         status: 'Bekliyor',
@@ -251,7 +252,7 @@ class CrisisDataService extends ChangeNotifier {
       id: id,
       name: name.trim(),
       address: address.trim().isEmpty
-          ? 'Şehitkamil Merkez Bölgesi'
+          ? 'Åehitkamil Merkez BÃ¶lgesi'
           : address.trim(),
       category: category,
       location: LatLng(37.0660 + offset, 37.3800 + offset),
@@ -260,16 +261,16 @@ class CrisisDataService extends ChangeNotifier {
       services: [
         category.title,
         'Temiz Su',
-        'İlk Yardım Noktası',
-        'Aydınlatma',
+        'Ä°lk YardÄ±m NoktasÄ±',
+        'AydÄ±nlatma',
       ],
-      stock: {'İçme Suyu': '500 Şişe', 'Battaniye': '200 Adet'},
-      statusText: 'Yeni Açıldı & Güvenli',
+      stock: {'Ä°Ã§me Suyu': '500 ÅiÅŸe', 'Battaniye': '200 Adet'},
+      statusText: 'Yeni AÃ§Ä±ldÄ± & GÃ¼venli',
       isSafe: true,
     );
 
     _areas.insert(0, newArea);
-    ReliefAreaModel.demoAreas.insert(0, newArea);
+    ReliefAreaModel.addDemoArea(newArea);
     notifyListeners();
 
     try {
@@ -292,7 +293,7 @@ class CrisisDataService extends ChangeNotifier {
   }) async {
     final idx = _areas.indexWhere((a) => a.id == areaId);
     if (idx < 0) {
-      throw ArgumentError.value(areaId, 'areaId', 'Toplanma alanı bulunamadı.');
+      throw ArgumentError.value(areaId, 'areaId', 'Toplanma alanÄ± bulunamadÄ±.');
     }
 
     final current = _areas[idx];
@@ -318,12 +319,7 @@ class CrisisDataService extends ChangeNotifier {
       _areas.add(updatedArea);
     }
 
-    final demoIndex = ReliefAreaModel.demoAreas.indexWhere(
-      (area) => area.id == updatedArea.id,
-    );
-    if (demoIndex >= 0) {
-      ReliefAreaModel.demoAreas[demoIndex] = updatedArea;
-    }
+    ReliefAreaModel.updateDemoArea(updatedArea);
     notifyListeners();
   }
 
@@ -334,28 +330,28 @@ class CrisisDataService extends ChangeNotifier {
 
     if (lower.contains('nefes') ||
         lower.contains('kalp') ||
-        lower.contains('öl') ||
-        lower.contains('bilinç')) {
+        lower.contains('Ã¶l') ||
+        lower.contains('bilinÃ§')) {
       return {
         'text':
-            '🚨 ACİL DURUM TESPİT EDİLDİ! Solunum durması veya bilinç kaybı şüphesinde zaman kaybetmeden hemen 112 Acil Çağrı Merkezini arayınız veya üstteki kırmızı 112 butonuna basınız. Hastayı düz ve sert bir zemine yatırıp baş-çene pozisyonu ile hava yolunu açık tutunuz.',
-        'source': 'T.C. Sağlık Bakanlığı Acil Sağlık Hizmetleri Protokolü',
+            'ğŸš¨ ACÄ°L DURUM TESPÄ°T EDÄ°LDÄ°! Solunum durmasÄ± veya bilinÃ§ kaybÄ± ÅŸÃ¼phesinde zaman kaybetmeden hemen 112 Acil Ã‡aÄŸrÄ± Merkezini arayÄ±nÄ±z veya Ã¼stteki kÄ±rmÄ±zÄ± 112 butonuna basÄ±nÄ±z. HastayÄ± dÃ¼z ve sert bir zemine yatÄ±rÄ±p baÅŸ-Ã§ene pozisyonu ile hava yolunu aÃ§Ä±k tutunuz.',
+        'source': 'T.C. SaÄŸlÄ±k BakanlÄ±ÄŸÄ± Acil SaÄŸlÄ±k Hizmetleri ProtokolÃ¼',
         'isEmergency': true,
       };
     } else if (lower.contains('enkaz') ||
-        lower.contains('altında') ||
-        lower.contains('sıkış')) {
+        lower.contains('altÄ±nda') ||
+        lower.contains('sÄ±kÄ±ÅŸ')) {
       return {
         'text':
-            'Enkaz altındaysanız:\n1. Enerjinizi koruyun, panik yapmayın ve tozdan korunmak için ağzınızı kumaşla örtün.\n2. Bağırmak yerine yakınınızdaki boru veya sert nesnelere periyodik olarak vurun (tık tık sesi dinleme cihazlarına daha net iletilir).\n3. Kibrit veya çakmak ASLA yakmayın (gaz sızıntısı riski).\n4. Dışarıdan arama kurtarma sesleri duyduğunuzda varlığınızı belli edin.',
-        'source': 'AFAD Enkaz Altında Hayatta Kalma Kılavuzu',
+            'Enkaz altÄ±ndaysanÄ±z:\n1. Enerjinizi koruyun, panik yapmayÄ±n ve tozdan korunmak iÃ§in aÄŸzÄ±nÄ±zÄ± kumaÅŸla Ã¶rtÃ¼n.\n2. BaÄŸÄ±rmak yerine yakÄ±nÄ±nÄ±zdaki boru veya sert nesnelere periyodik olarak vurun (tÄ±k tÄ±k sesi dinleme cihazlarÄ±na daha net iletilir).\n3. Kibrit veya Ã§akmak ASLA yakmayÄ±n (gaz sÄ±zÄ±ntÄ±sÄ± riski).\n4. DÄ±ÅŸarÄ±dan arama kurtarma sesleri duyduÄŸunuzda varlÄ±ÄŸÄ±nÄ±zÄ± belli edin.',
+        'source': 'AFAD Enkaz AltÄ±nda Hayatta Kalma KÄ±lavuzu',
         'isEmergency': false,
       };
     } else if (lower.contains('toplanma') ||
-        lower.contains('çadır') ||
+        lower.contains('Ã§adÄ±r') ||
         lower.contains('nereye') ||
         lower.contains('alan') ||
-        lower.contains('boş') ||
+        lower.contains('boÅŸ') ||
         lower.contains('stok')) {
       final topAreas = _areas
           .take(3)
@@ -363,23 +359,23 @@ class CrisisDataService extends ChangeNotifier {
             final stockSummary = a.stock.entries
                 .map((e) => '${e.key}: ${e.value}')
                 .join(', ');
-            return '• ${a.name} (Boş Kapasite: ${a.availableSpots} kişi | Stok: $stockSummary)';
+            return 'â€¢ ${a.name} (BoÅŸ Kapasite: ${a.availableSpots} kiÅŸi | Stok: $stockSummary)';
           })
           .join('\n');
       return {
         'text':
-            'Şu an sistemde kayıtlı toplam ${_areas.length} güvenli alan bulunmaktadır. En uygun noktalar:\n$topAreas\n\nHarita sekmesinden tek tıkla güvenli yaya rotasını başlatabilirsiniz.',
-        'source': 'Canlı Kriz Masası & Firestore Veri Tabanı',
+            'Åu an sistemde kayÄ±tlÄ± toplam ${_areas.length} gÃ¼venli alan bulunmaktadÄ±r. En uygun noktalar:\n$topAreas\n\nHarita sekmesinden tek tÄ±kla gÃ¼venli yaya rotasÄ±nÄ± baÅŸlatabilirsiniz.',
+        'source': 'CanlÄ± Kriz MasasÄ± & Firestore Veri TabanÄ±',
         'isEmergency': false,
       };
     } else if (lower.contains('su') ||
-        lower.contains('içme') ||
-        lower.contains('gıda') ||
+        lower.contains('iÃ§me') ||
+        lower.contains('gÄ±da') ||
         lower.contains('yemek')) {
       return {
         'text':
-            'Şebeke suları afet sonrasında kirlenmiş olabilir. Sadece kapalı şişe sularını içiniz. Şu an Kızılay Aşevi (Mithatpaşa) ve Atatürk Parkı Toplanma Alanında temiz içme suyu ve sıcak yemek dağıtımı devam etmektedir.',
-        'source': 'Dünya Sağlık Örgütü (WHO) & Kızılay Dağıtım Verisi',
+            'Åebeke sularÄ± afet sonrasÄ±nda kirlenmiÅŸ olabilir. Sadece kapalÄ± ÅŸiÅŸe sularÄ±nÄ± iÃ§iniz. Åu an KÄ±zÄ±lay AÅŸevi (MithatpaÅŸa) ve AtatÃ¼rk ParkÄ± Toplanma AlanÄ±nda temiz iÃ§me suyu ve sÄ±cak yemek daÄŸÄ±tÄ±mÄ± devam etmektedir.',
+        'source': 'DÃ¼nya SaÄŸlÄ±k Ã–rgÃ¼tÃ¼ (WHO) & KÄ±zÄ±lay DaÄŸÄ±tÄ±m Verisi',
         'isEmergency': false,
       };
     } else if (lower.contains('kan') ||
@@ -387,17 +383,18 @@ class CrisisDataService extends ChangeNotifier {
         lower.contains('turnike')) {
       return {
         'text':
-            'Ciddi kanamalarda yara üzerine temiz bir bez veya giysi parçasıyla doğrudan ve kuvvetli basınç uygulayınız. Kanama durmazsa basıncı gevşetmeden bezin üzerine ek bez sarınız. En yakın Sahra Hastanesi: İstasyon Caddesi Sağlık Çadırı.',
-        'source': 'Türk Kızılayı Temel İlk Yardım El Kitabı',
+            'Ciddi kanamalarda yara Ã¼zerine temiz bir bez veya giysi parÃ§asÄ±yla doÄŸrudan ve kuvvetli basÄ±nÃ§ uygulayÄ±nÄ±z. Kanama durmazsa basÄ±ncÄ± gevÅŸetmeden bezin Ã¼zerine ek bez sarÄ±nÄ±z. En yakÄ±n Sahra Hastanesi: Ä°stasyon Caddesi SaÄŸlÄ±k Ã‡adÄ±rÄ±.',
+        'source': 'TÃ¼rk KÄ±zÄ±layÄ± Temel Ä°lk YardÄ±m El KitabÄ±',
         'isEmergency': false,
       };
     } else {
       return {
         'text':
-            'Deprem sonrasında binanızı terk ederken elektrik şalterini ve doğalgaz ana vanasını kapatınız. Asansör kesinlikle kullanmayınız. Şu an sistemde ${_areas.length} aktif toplanma alanı ve $activeReportsCount açık ihbar takip edilmektedir.',
-        'source': 'AFAD Afet Farkındalık Kılavuzu & Canlı Sistem',
+            'Deprem sonrasÄ±nda binanÄ±zÄ± terk ederken elektrik ÅŸalterini ve doÄŸalgaz ana vanasÄ±nÄ± kapatÄ±nÄ±z. AsansÃ¶r kesinlikle kullanmayÄ±nÄ±z. Åu an sistemde ${_areas.length} aktif toplanma alanÄ± ve $activeReportsCount aÃ§Ä±k ihbar takip edilmektedir.',
+        'source': 'AFAD Afet FarkÄ±ndalÄ±k KÄ±lavuzu & CanlÄ± Sistem',
         'isEmergency': false,
       };
     }
   }
 }
+

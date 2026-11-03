@@ -118,6 +118,9 @@ class HotReloadListener extends StatefulWidget {
 class HotReloadListenerState extends State<HotReloadListener> {
   @override
   void reassemble() {
+    if (!mounted) {
+      return;
+    }
     super.reassemble();
     widget.onHotReload();
   }

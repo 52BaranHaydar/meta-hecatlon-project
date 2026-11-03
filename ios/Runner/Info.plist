@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Afet haritasında bulunduğunuz konumu ve size en yakın toplanma alanlarını göstermek için konum izni gereklidir.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Acil SOS mors sinyali için cihazın kamera flaşı kullanılır.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

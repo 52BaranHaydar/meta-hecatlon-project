@@ -328,8 +328,12 @@ class WidgetPreviewWidgetState extends State<WidgetPreviewWidget> {
   final key = GlobalKey();
 
   /// Returns the last size of the previewed widget.
+  ///
+  /// During a hot reload or soft restart, the preview may temporarily not yet
+  /// have a mounted render object. In that case, default to a zero-size box so
+  /// the preview can be rebuilt without throwing.
   Size get lastChildSize =>
-      (key.currentContext!.findRenderObject() as RenderBox).size;
+      (key.currentContext?.findRenderObject() as RenderBox?)?.size ?? Size.zero;
 
   @override
   void didUpdateWidget(WidgetPreviewWidget oldWidget) {

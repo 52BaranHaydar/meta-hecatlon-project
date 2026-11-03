@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../models/ai_triage_model.dart';
+import '../../services/auth_service.dart';
 import '../../services/crisis_data_service.dart';
+import '../../services/location_service.dart';
+import '../../services/safety_circle_service.dart';
+import '../../services/safety_sms_service.dart';
 import '../../widgets/emergency_112_button.dart';
 
 class AiTriageScreen extends StatefulWidget {
@@ -22,12 +28,31 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
   bool _isListening = false;
   bool _submittedToAdmin = false;
   AiTriageResult? _activeResult;
+  List<SafetySmsDraft> _pendingSmsDrafts = [];
 
   @override
   void initState() {
     super.initState();
     _activeResult = _crisisService.reports.first;
     _reportController.text = _activeResult!.rawText;
+    _loadPendingSmsDrafts();
+  }
+
+  Future<void> _loadPendingSmsDrafts() async {
+    final user = AuthService().currentUser;
+    if (user == null) return;
+    try {
+      final drafts = await SafetySmsService.loadQueue(user.uid);
+      if (mounted) setState(() => _pendingSmsDrafts = drafts);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Bekleyen SMS kuyruğu yüklenemedi: $error'),
+          backgroundColor: AppColors.emergencyRed,
+        ),
+      );
+    }
   }
 
   @override
@@ -44,6 +69,43 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       _isAnalyzing = true;
       _submittedToAdmin = false;
     });
+
+    bool hasInternet;
+    try {
+      hasInternet = await InternetConnection().hasInternetAccess;
+    } catch (error) {
+      final queued = await _tryQueueOfflineReport(text);
+      if (!mounted) return;
+      setState(() => _isAnalyzing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            queued
+                ? 'Bağlantı doğrulanamadı; ihbar SMS kuyruğuna kaydedildi. Hata: $error'
+                : 'Bağlantı doğrulanamadı ve ihbar SMS kuyruğuna eklenemedi. Hata: $error',
+          ),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+    if (!hasInternet) {
+      final queued = await _tryQueueOfflineReport(text);
+      if (!mounted) return;
+      setState(() => _isAnalyzing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            queued
+                ? 'İnternet yok. İhbar SMS kuyruğuna kaydedildi; henüz gönderilmedi.'
+                : 'İnternet yok ve ihbar SMS kuyruğuna eklenemedi.',
+          ),
+          backgroundColor: AppColors.warning,
+          duration: Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
 
     final result = await _crisisService.classifyAndSubmitReport(
       text,
@@ -68,6 +130,113 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
     }
   }
 
+  Future<bool> _tryQueueOfflineReport(String text) async {
+    try {
+      await _queueOfflineReport(text);
+      return true;
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('SMS kuyruğuna kaydedilemedi: $error'),
+            backgroundColor: AppColors.emergencyRed,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _queueOfflineReport(String text) async {
+    final user = AuthService().currentUser;
+    if (user == null) throw StateError('Oturum açmış kullanıcı bulunamadı.');
+
+    SafetyStatusReport? report;
+    var location = _locationController.text.trim();
+    try {
+      final currentLocation = await LocationService.getCurrentLocation();
+      report = SafetyStatusReport(
+        reportedAt: DateTime.now(),
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+      );
+    } catch (error) {
+      location = '$location (GPS alınamadı: $error)';
+    }
+
+    final draft = await SafetySmsService.queueEmergencyMessage(
+      userId: user.uid,
+      message: SafetySmsService.composeEmergencyMessage(
+        citizenName: user.name,
+        reportText: text,
+        location: location,
+        report: report,
+      ),
+    );
+    if (mounted) {
+      setState(() => _pendingSmsDrafts = [draft, ..._pendingSmsDrafts]);
+    }
+  }
+
+  Future<void> _openPendingSms(SafetySmsDraft draft) async {
+    try {
+      final launched = await SafetySmsService.openQueuedDraft(draft);
+      if (!mounted) return;
+      if (!launched) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'SMS uygulaması açılamadı; taslak kuyrukta tutuluyor.',
+            ),
+            backgroundColor: AppColors.emergencyRed,
+          ),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'SMS uygulaması açıldı. Alıcıyı seçip Gönder’e basmanız gerekir.',
+          ),
+          duration: Duration(seconds: 6),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('SMS taslağı açılamadı: $error'),
+          backgroundColor: AppColors.emergencyRed,
+        ),
+      );
+    }
+  }
+
+  Future<void> _removePendingSms(SafetySmsDraft draft) async {
+    final user = AuthService().currentUser;
+    if (user == null) return;
+    try {
+      await SafetySmsService.removeFromQueue(
+        userId: user.uid,
+        draftId: draft.id,
+      );
+      if (mounted) {
+        setState(
+          () =>
+              _pendingSmsDrafts.removeWhere((queued) => queued.id == draft.id),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('SMS kuyruğu güncellenemedi: $error'),
+          backgroundColor: AppColors.emergencyRed,
+        ),
+      );
+    }
+  }
+
   void _simulateVoiceInput() {
     setState(() {
       _isListening = true;
@@ -76,23 +245,38 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Ses dinleniyor... Meta AI konuşmayı metne aktarıyor (Whisper / Speech-to-Text)',
+          'Ses komutu simülasyonu: “Yardım İstiyorum” algılanıyor…',
         ),
         backgroundColor: AppColors.primaryBlue,
         duration: Duration(seconds: 2),
       ),
     );
 
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () async {
       if (mounted) {
         setState(() {
           _isListening = false;
           _reportController.text =
-              'Apartmanın alt katında bir kişi sıkışmış durumda, lütfen acil vinç ve sağlık ekibi gönderin!';
+              'Yardım istiyorum. Enkaz altında mahsur kaldım, konumuma acil ekip gönderin.';
         });
+        await _vibrateForVoiceCommand();
         _runAiClassification(_reportController.text);
       }
     });
+  }
+
+  Future<void> _vibrateForVoiceCommand() async {
+    try {
+      await HapticFeedback.vibrate();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Titreşim uyarısı başlatılamadı: $error'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+    }
   }
 
   @override
@@ -329,6 +513,70 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                 ),
               ),
               const SizedBox(height: 22),
+
+              if (_pendingSmsDrafts.isNotEmpty) ...[
+                Card(
+                  color: const Color(0xFFFFF8E1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Çevrimdışı SMS kuyruğu (${_pendingSmsDrafts.length})',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          SafetySmsService.emergencySmsTarget.isEmpty
+                              ? '112/AFAD SMS hedefi yapılandırılmadı. Taslak alıcı olmadan açılır; mesajı göndermek için alıcı seçip Gönder’e basın.'
+                              : 'SMS taslağı henüz gönderilmedi. Göndermek için SMS uygulamasında Gönder’e basın.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        ..._pendingSmsDrafts.map(
+                          (draft) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(
+                              Icons.sms_outlined,
+                              color: AppColors.warning,
+                            ),
+                            title: Text(
+                              draft.message,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              draft.createdAt.toLocal().toString(),
+                            ),
+                            trailing: Wrap(
+                              spacing: 4,
+                              children: [
+                                IconButton(
+                                  tooltip: 'SMS taslağını aç',
+                                  onPressed: () => _openPendingSms(draft),
+                                  icon: const Icon(Icons.open_in_new_rounded),
+                                ),
+                                IconButton(
+                                  tooltip: 'Gönderildi olarak işaretle',
+                                  onPressed: () => _removePendingSms(draft),
+                                  icon: const Icon(Icons.check_circle_outline),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // AI Diagnostic Output Card
               if (_activeResult != null) ...[

@@ -28,6 +28,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Yakın Ekle'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Yakın Ekle'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).at(0), 'Ayşe Yılmaz');

@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart' hide Path;
 import '../../constants/app_colors.dart';
 import '../../models/relief_area_model.dart';
 import '../../services/location_service.dart';
+import '../../services/walking_route_service.dart';
 import '../../widgets/emergency_112_button.dart';
 
 class AiDisasterMapScreen extends StatefulWidget {
@@ -34,7 +35,12 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
   final TextEditingController _searchController = TextEditingController();
   bool _isNavigating = false;
   bool _isLoadingLocation = false;
+  bool _isLoadingWalkingRoute = false;
   String? _locationError;
+  String? _walkingRouteError;
+  WalkingRoute? _walkingRoute;
+  String? _walkingRouteDestinationId;
+  int _routeRequestId = 0;
   bool? _hasInternetAccess;
   String? _connectivityError;
   StreamSubscription<InternetStatus>? _connectivitySubscription;
@@ -102,6 +108,10 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
     if (oldWidget.initialSelectedArea != widget.initialSelectedArea &&
         widget.initialSelectedArea != null) {
       _selectedArea = widget.initialSelectedArea;
+      final location = _userLocation;
+      if (location != null) {
+        unawaited(_loadWalkingRoute(location, widget.initialSelectedArea!));
+      }
     }
     if (!oldWidget.isActive && widget.isActive) _loadUserLocation();
   }
@@ -123,11 +133,21 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
     try {
       final location = await LocationService.getCurrentLocation();
       if (!mounted) return;
+      final nearest = _nearestAssemblyArea(location);
+      final useNearest =
+          widget.initialSelectedArea == null &&
+          (_filterCategory == null ||
+              _filterCategory == AreaCategory.assemblyArea);
+      final destination = useNearest ? nearest : _selectedArea;
       setState(() {
         _userLocation = location;
         _isLoadingLocation = false;
         _mapOffset = Offset.zero;
+        if (useNearest && nearest != null) _selectedArea = nearest;
       });
+      if (destination != null) {
+        unawaited(_loadWalkingRoute(location, destination));
+      }
     } on LocationServiceException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -139,6 +159,42 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
       setState(() {
         _locationError = 'GPS konumu alınamadı: $error';
         _isLoadingLocation = false;
+      });
+    }
+  }
+
+  Future<void> _loadWalkingRoute(
+    LatLng origin,
+    ReliefAreaModel destination,
+  ) async {
+    final requestId = ++_routeRequestId;
+    setState(() {
+      _isLoadingWalkingRoute = true;
+      _walkingRouteError = null;
+      _walkingRoute = null;
+      _walkingRouteDestinationId = destination.id;
+    });
+    try {
+      final route = await WalkingRouteService.getWalkingRoute(
+        origin: origin,
+        destination: destination.location,
+      );
+      if (!mounted || requestId != _routeRequestId) return;
+      setState(() {
+        _walkingRoute = route;
+        _isLoadingWalkingRoute = false;
+      });
+    } on WalkingRouteException catch (error) {
+      if (!mounted || requestId != _routeRequestId) return;
+      setState(() {
+        _walkingRouteError = error.message;
+        _isLoadingWalkingRoute = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _routeRequestId) return;
+      setState(() {
+        _walkingRouteError = 'Yaya rotası alınamadı: $error';
+        _isLoadingWalkingRoute = false;
       });
     }
   }
@@ -232,12 +288,18 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
         ? _calculateDistanceKm(userLocation, nearestAssemblyArea.location)
         : null;
     final mapOrigin = userLocation ?? ReliefAreaModel.demoAreas.first.location;
-    final distanceKm = activeDestination != null && userLocation != null
+    final straightLineDistanceKm =
+        activeDestination != null && userLocation != null
         ? _calculateDistanceKm(userLocation, activeDestination.location)
         : null;
-    final walkMin = distanceKm == null
-        ? null
-        : (distanceKm * 12).round().clamp(1, 120);
+    final hasWalkingRoute =
+        activeDestination != null &&
+        _walkingRouteDestinationId == activeDestination.id &&
+        _walkingRoute != null;
+    final distanceKm = hasWalkingRoute
+        ? _walkingRoute!.distanceMeters / 1000
+        : straightLineDistanceKm;
+    final walkMin = hasWalkingRoute ? _walkingRoute!.walkingMinutes : null;
     final carMin = distanceKm == null
         ? null
         : (distanceKm * 2.5).round().clamp(1, 60);
@@ -263,6 +325,9 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                     mapOrigin: mapOrigin,
                     selectedArea: activeDestination,
                     areas: _filteredAreas,
+                    walkingRoute: hasWalkingRoute
+                        ? _walkingRoute!.points
+                        : const [],
                     offset: _mapOffset,
                     scale: _mapScale,
                     pulseValue: _pulseController.value,
@@ -271,6 +336,9 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                       setState(() {
                         _selectedArea = area;
                       });
+                      if (userLocation != null) {
+                        unawaited(_loadWalkingRoute(userLocation, area));
+                      }
                     },
                   ),
                 );
@@ -359,6 +427,9 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                           setState(() {
                             _selectedArea = area;
                           });
+                          if (userLocation != null) {
+                            unawaited(_loadWalkingRoute(userLocation, area));
+                          }
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
@@ -433,7 +504,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Meta AI Güvenli Rota: ${activeDestination.name}',
+                              'Yaya rotası (OpenRouteService): ${activeDestination.name}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
@@ -599,6 +670,74 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                       ),
                     ),
                   ],
+                  if (nearestAssemblyArea != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.directions_walk_rounded,
+                            color: AppColors.primaryBlue,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _isLoadingWalkingRoute
+                                      ? 'Yaya rotası hesaplanıyor…'
+                                      : _walkingRoute != null &&
+                                            _walkingRouteDestinationId ==
+                                                activeDestination?.id
+                                      ? 'Yaya rotası: ${activeDestination?.name ?? nearestAssemblyArea.name} • ${_formatDistance(_walkingRoute!.distanceMeters / 1000)} • ${_walkingRoute!.walkingMinutes} dk'
+                                      : 'En yakın alan: ${nearestAssemblyArea.name}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  _walkingRouteError ??
+                                      (_walkingRoute != null &&
+                                              _walkingRouteDestinationId ==
+                                                  activeDestination?.id
+                                          ? 'Afet kaynaklı yol kapanmalarını veya tehlikeleri doğrulamaz.'
+                                          : '${_formatDistance(nearestAssemblyDistanceKm!)} kuş uçuşu • gerçek yaya rotası değildir.'),
+                                  style: TextStyle(
+                                    color: _walkingRouteError == null
+                                        ? AppColors.textSecondary
+                                        : AppColors.emergencyRed,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!_isLoadingWalkingRoute &&
+                              activeDestination != null &&
+                              userLocation != null)
+                            IconButton(
+                              tooltip: 'Yaya rotasını yenile',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => _loadWalkingRoute(
+                                userLocation,
+                                activeDestination,
+                              ),
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (_hasInternetAccess == false) ...[
                     const SizedBox(height: 8),
                     Container(
@@ -708,6 +847,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                 distanceKm: distanceKm,
                 walkMin: walkMin,
                 carMin: carMin,
+                hasWalkingRoute: hasWalkingRoute,
               ),
             ),
         ],
@@ -719,12 +859,18 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
     final isSelected = _filterCategory == category;
     return GestureDetector(
       onTap: () {
+        ReliefAreaModel? destination;
         setState(() {
           _filterCategory = category;
           if (category != null && _selectedArea?.category != category) {
             _selectedArea = _firstAreaForFilter(category);
           }
+          destination = _selectedArea;
         });
+        final location = _userLocation;
+        if (location != null && destination != null) {
+          unawaited(_loadWalkingRoute(location, destination!));
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -769,12 +915,11 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
     required double? distanceKm,
     required int? walkMin,
     required int? carMin,
+    required bool hasWalkingRoute,
   }) {
     final distFormatted = distanceKm == null
         ? 'GPS konumu bekleniyor'
-        : distanceKm < 1.0
-        ? '${(distanceKm * 1000).round()} metre'
-        : '${distanceKm.toStringAsFixed(1)} km';
+        : '${distanceKm < 1.0 ? '${(distanceKm * 1000).round()} metre' : '${distanceKm.toStringAsFixed(1)} km'}${hasWalkingRoute ? '' : ' kuş uçuşu'}';
 
     return Container(
       decoration: BoxDecoration(
@@ -936,7 +1081,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
               Expanded(
                 flex: 3,
                 child: ElevatedButton.icon(
-                  onPressed: distanceKm == null
+                  onPressed: distanceKm == null || !hasWalkingRoute
                       ? null
                       : () {
                           if (walkMin == null) return;
@@ -954,7 +1099,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                   ),
                   icon: const Icon(Icons.navigation_rounded, size: 18),
                   label: const Text(
-                    'BURAYA GİT (YOL TARİFİ)',
+                    'ROTAYI HARİTADA GÖSTER',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                   ),
                 ),
@@ -1041,21 +1186,15 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
             const SizedBox(height: 18),
             const Divider(),
             const SizedBox(height: 10),
-            _buildNavStep(
-              '1',
-              'Bulunduğunuz konumdan kuzeye doğru 150m düz ilerleyin.',
-              Icons.arrow_upward_rounded,
-            ),
-            _buildNavStep(
-              '2',
-              'Ana caddeden sağa dönün ve 350m yürüyün.',
-              Icons.turn_right_rounded,
-            ),
-            _buildNavStep(
-              '3',
-              '${area.name} giriş kapısına ulaştınız.',
-              Icons.pin_drop_rounded,
-              isLast: true,
+            const Text(
+              'Rota çizgisi OpenRouteService yaya ağına dayanır; afet kaynaklı '
+              'yol kapanmalarını veya anlık tehlikeleri doğrulamaz. Yerel resmî '
+              'yönlendirmeleri izleyin.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 18),
             ElevatedButton.icon(
@@ -1065,7 +1204,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      '${area.name} için canlı rota takibi başlatıldı.',
+                      '${area.name} yaya rotası haritada gösteriliyor; canlı GPS takibi değildir.',
                     ),
                     backgroundColor: AppColors.success,
                   ),
@@ -1080,48 +1219,12 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
               ),
               icon: const Icon(Icons.play_arrow_rounded),
               label: const Text(
-                'Canlı Navigasyonu Başlat',
+                'Rotayı haritada göster',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildNavStep(
-    String stepNumber,
-    String text,
-    IconData icon, {
-    bool isLast = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 12,
-            backgroundColor: isLast ? AppColors.success : AppColors.primaryBlue,
-            child: Text(
-              stepNumber,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Icon(icon, size: 18, color: AppColors.textSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1233,6 +1336,7 @@ class _TacticalMapPainter extends CustomPainter {
   final LatLng? safeReportLocation;
   final ReliefAreaModel? selectedArea;
   final List<ReliefAreaModel> areas;
+  final List<LatLng> walkingRoute;
   final Offset offset;
   final double scale;
   final double pulseValue;
@@ -1244,6 +1348,7 @@ class _TacticalMapPainter extends CustomPainter {
     required this.safeReportLocation,
     required this.selectedArea,
     required this.areas,
+    required this.walkingRoute,
     required this.offset,
     required this.scale,
     required this.pulseValue,
@@ -1315,25 +1420,26 @@ class _TacticalMapPainter extends CustomPainter {
       streetPaint,
     );
 
-    // 3. Draw Route Path to selected area (Meta AI Recommended Route)
-    if (selectedArea != null && userLocation != null) {
-      final destX =
-          center.dx +
-          (selectedArea!.location.longitude - mapOrigin.longitude) * 12000;
-      final destY =
-          center.dy -
-          (selectedArea!.location.latitude - mapOrigin.latitude) * 12000;
-
+    if (walkingRoute.length > 1) {
       final routePaint = Paint()
         ..color = const Color(0xFF38BDF8)
         ..strokeWidth = 5.0
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
 
-      final path = Path()
-        ..moveTo(center.dx, center.dy)
-        ..lineTo((center.dx + destX) / 2 + 20, (center.dy + destY) / 2 - 20)
-        ..lineTo(destX, destY);
+      final path = Path();
+      for (var index = 0; index < walkingRoute.length; index++) {
+        final point = walkingRoute[index];
+        final projected = Offset(
+          center.dx + (point.longitude - mapOrigin.longitude) * 12000 * scale,
+          center.dy - (point.latitude - mapOrigin.latitude) * 12000 * scale,
+        );
+        if (index == 0) {
+          path.moveTo(projected.dx, projected.dy);
+        } else {
+          path.lineTo(projected.dx, projected.dy);
+        }
+      }
 
       canvas.drawPath(path, routePaint);
     }
@@ -1347,6 +1453,7 @@ class _TacticalMapPainter extends CustomPainter {
         oldDelegate.offset != offset ||
         oldDelegate.selectedArea != selectedArea ||
         oldDelegate.areas != areas ||
+        oldDelegate.walkingRoute != walkingRoute ||
         oldDelegate.pulseValue != pulseValue;
   }
 }

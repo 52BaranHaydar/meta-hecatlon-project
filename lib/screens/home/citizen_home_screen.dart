@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:latlong2/latlong.dart';
 import '../../constants/app_colors.dart';
@@ -34,10 +37,13 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
   bool _isSavingContacts = false;
   bool _isLoadingSafetyCircle = true;
   bool _isPreparingSms = false;
+  bool _isQueueingEmergencySms = false;
   late final SafetyCircleService _safetyCircleService;
   List<SafetyCircleContact> _safetyContacts = [];
   List<SafetyCircleContact> _smsQueue = [];
+  List<SafetySmsDraft> _pendingEmergencySmsDrafts = [];
   int _nextSmsIndex = 0;
+  Timer? _statusRefreshTimer;
   String? _bloodGroup;
   SafetyStatusReport? _latestSafetyReport;
   String? _safetyCircleError;
@@ -48,6 +54,9 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     super.initState();
     _safetyCircleService = SafetyCircleService(widget.user.uid);
     _loadSafetyCircle();
+    _statusRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _loadSafetyCircle() async {
@@ -55,11 +64,13 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       final contacts = await _safetyCircleService.loadContacts();
       final report = await _safetyCircleService.loadLatestReport();
       final bloodGroup = await _safetyCircleService.loadBloodGroup();
+      final smsDrafts = await SafetySmsService.loadQueue(widget.user.uid);
       if (!mounted) return;
       setState(() {
         _safetyContacts = contacts;
         _latestSafetyReport = report;
         _bloodGroup = bloodGroup;
+        _pendingEmergencySmsDrafts = smsDrafts;
         _hasReportedSafe = report != null;
         _isLoadingSafetyCircle = false;
       });
@@ -145,11 +156,31 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     }
 
     if (!mounted) return;
+    String? liveStatusMessage;
+    if (_safetyCircleService.canUseLiveSharing(widget.user.uid)) {
+      try {
+        final recipientCount = await _safetyCircleService.publishStatus(
+          userId: widget.user.uid,
+          status: SafetyStatus.safe,
+          report: report,
+        );
+        liveStatusMessage = recipientCount == 0
+            ? 'Henüz daveti kabul eden yakın yok; canlı durum paylaşılmadı.'
+            : 'Güvenlik durumunuz $recipientCount yakınla paylaşıldı.';
+      } catch (error) {
+        liveStatusMessage = 'Canlı paylaşım başarısız: $error';
+      }
+    } else {
+      liveStatusMessage =
+          'Bu oturumda bildirim yalnızca bu cihazda saklanıyor; yakınlarınıza canlı iletilmedi.';
+    }
+
+    if (!mounted) return;
     setState(() {
       _isReportingSafe = false;
       _hasReportedSafe = true;
       _latestSafetyReport = report;
-      _safetyCircleError = null;
+      _safetyCircleError = liveStatusMessage;
     });
     widget.onSafeReport?.call(location);
 
@@ -161,12 +192,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         'Pil: %$batteryPercent.'
       else if (batteryError != null)
         batteryError,
-      'Kayıt yalnızca bu cihazda saklanır.',
+      liveStatusMessage,
     ];
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Güvende bildirimi kaydedildi. ${details.join(' ')}'),
-        backgroundColor: location == null || batteryError != null
+        backgroundColor: locationError != null || batteryError != null
             ? AppColors.warning
             : AppColors.success,
       ),
@@ -234,6 +265,297 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       return;
     }
 
+    await _sendNextSafetySmsDraft(safetyReport);
+  }
+
+  Future<void> _queueEmergencySms({
+    String reportText = 'Yardım istiyorum. Acil destek gerekiyor.',
+  }) async {
+    if (_isQueueingEmergencySms) return;
+    setState(() => _isQueueingEmergencySms = true);
+    SafetyStatusReport? report;
+    String? locationError;
+    try {
+      final location = await LocationService.getCurrentLocation();
+      report = SafetyStatusReport(
+        reportedAt: DateTime.now(),
+        latitude: location.latitude,
+        longitude: location.longitude,
+      );
+    } on LocationServiceException catch (error) {
+      report = SafetyStatusReport(reportedAt: DateTime.now());
+      locationError = error.message;
+    } catch (error) {
+      report = SafetyStatusReport(reportedAt: DateTime.now());
+      locationError = 'GPS konumu alınamadı: $error';
+    }
+
+    try {
+      final draft = await SafetySmsService.queueEmergencyMessage(
+        userId: widget.user.uid,
+        message: SafetySmsService.composeEmergencyMessage(
+          citizenName: widget.user.name,
+          reportText: reportText,
+          location: locationError ?? '',
+          report: report,
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        _pendingEmergencySmsDrafts = [draft, ..._pendingEmergencySmsDrafts];
+        _isQueueingEmergencySms = false;
+        _smsError = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Acil SMS taslağı bu cihaza kaydedildi. Henüz gönderilmedi; resmî hedef numara ayarlı değil.',
+          ),
+          backgroundColor: AppColors.warning,
+          duration: Duration(seconds: 6),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isQueueingEmergencySms = false;
+        _smsError = 'Acil SMS kuyruğa eklenemedi: $error';
+      });
+    }
+  }
+
+  Future<void> _openEmergencySmsDraft(SafetySmsDraft draft) async {
+    SafetyCircleContact? selectedContact;
+    final smsContacts = _safetyContacts
+        .where((contact) => contact.phone.isNotEmpty)
+        .toList();
+    if (smsContacts.isNotEmpty) {
+      selectedContact = await showModalBottomSheet<SafetyCircleContact?>(
+        context: context,
+        builder: (sheetContext) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text(
+                  'SMS alıcısı seçin',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              ...smsContacts.map(
+                (contact) => ListTile(
+                  leading: const Icon(Icons.person_outline_rounded),
+                  title: Text(contact.name),
+                  subtitle: Text(contact.phone),
+                  onTap: () => Navigator.of(sheetContext).pop(contact),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit_rounded),
+                title: const Text('Alıcıyı SMS uygulamasında seç'),
+                onTap: () => Navigator.of(sheetContext).pop(),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (!mounted) return;
+    }
+
+    try {
+      final launched = selectedContact == null
+          ? await SafetySmsService.openQueuedDraft(draft)
+          : await SafetySmsService.openDraftToNumber(
+              phone: selectedContact.phone,
+              message: draft.message,
+            );
+      if (!mounted) return;
+      if (!launched) {
+        setState(() => _smsError = 'SMS uygulaması açılamadı.');
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'SMS uygulaması açıldı. Mesaj, siz Gönder’e basana kadar gönderilmez.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _smsError = 'SMS taslağı açılamadı: $error');
+    }
+  }
+
+  Future<void> _markEmergencySmsSent(SafetySmsDraft draft) async {
+    try {
+      await SafetySmsService.removeFromQueue(
+        userId: widget.user.uid,
+        draftId: draft.id,
+      );
+      if (!mounted) return;
+      setState(
+        () => _pendingEmergencySmsDrafts.removeWhere(
+          (queued) => queued.id == draft.id,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _smsError = 'SMS kuyruğu güncellenemedi: $error');
+    }
+  }
+
+  Future<void> _createSafetyInvite(SafetyCircleContact contact) async {
+    try {
+      final code = await _safetyCircleService.createInvite(
+        userId: widget.user.uid,
+        displayName: widget.user.name,
+      );
+      final updatedContacts = _safetyContacts
+          .map(
+            (saved) => saved.id == contact.id
+                ? saved.copyWith(inviteCode: code)
+                : saved,
+          )
+          .toList();
+      await _safetyCircleService.saveContacts(updatedContacts);
+      if (!mounted) return;
+      setState(() => _safetyContacts = updatedContacts);
+      var smsDraftOpened = false;
+      String? smsDraftError;
+      try {
+        smsDraftOpened = await SafetySmsService.openDraft(
+          contact: contact,
+          message: SafetySmsService.composeInviteMessage(
+            inviterName: widget.user.name,
+            inviteCode: code,
+          ),
+        );
+      } catch (error) {
+        smsDraftError = error.toString();
+      }
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Güvenlik ağı daveti oluşturuldu'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                smsDraftOpened
+                    ? 'SMS taslağı açıldı. Yakınınızın daveti kabul etmesi için kodu mesaj uygulamasında kendiniz gönderin.'
+                    : 'Bu cihazda SMS uygulaması açılamadı. Kodu yakınınıza başka bir yolla iletin.${smsDraftError == null ? '' : '\n\nAyrıntı: $smsDraftError'}',
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                code,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: code));
+                if (!mounted || !dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Davet kodu kopyalandı.')),
+                );
+              },
+              icon: const Icon(Icons.copy_rounded),
+              label: const Text('Kodu kopyala'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Tamam'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _safetyCircleError = 'Davet oluşturulamadı: $error');
+    }
+  }
+
+  Future<void> _acceptSafetyInvite() async {
+    final controller = TextEditingController();
+    final inviteCode = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Güvenlik ağı davetini kabul et'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '32 karakterli davet kodu',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Kabul Et'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (inviteCode == null || inviteCode.isEmpty || !mounted) return;
+
+    try {
+      final normalizedCode = inviteCode.toLowerCase();
+      if (_safetyContacts.length >= SafetyCircleService.maxContacts &&
+          !_safetyContacts.any((contact) => contact.id == normalizedCode)) {
+        throw StateError(
+          'En fazla ${SafetyCircleService.maxContacts} yakın eklenebilir.',
+        );
+      }
+      final inviterName = await _safetyCircleService.acceptInvite(
+        userId: widget.user.uid,
+        displayName: widget.user.name,
+        inviteCode: normalizedCode,
+      );
+      final invitedContact = SafetyCircleContact(
+        id: normalizedCode,
+        name: inviterName,
+        phone: '',
+        inviteCode: normalizedCode,
+      );
+      final updatedContacts = [
+        ..._safetyContacts.where((contact) => contact.id != invitedContact.id),
+        invitedContact,
+      ];
+      await _safetyCircleService.saveContacts(updatedContacts);
+      if (!mounted) return;
+      setState(() {
+        _safetyContacts = updatedContacts;
+        _safetyCircleError = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Davet kabul edildi; karşılıklı güvenlik paylaşımı açıldı.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _safetyCircleError = 'Davet kabul edilemedi: $error');
+    }
+  }
+
+  Future<void> _sendNextSafetySmsDraft(SafetyStatusReport safetyReport) async {
     final contact = _smsQueue[_nextSmsIndex];
     setState(() {
       _isPreparingSms = true;
@@ -330,6 +652,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         .toList();
     setState(() => _isSavingContacts = true);
     try {
+      if (contact.inviteCode != null) {
+        await _safetyCircleService.removeConnection(
+          userId: widget.user.uid,
+          inviteCode: contact.inviteCode!,
+        );
+      }
       await _safetyCircleService.saveContacts(updatedContacts);
       if (!mounted) return;
       setState(() {
@@ -657,7 +985,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             ),
             const SizedBox(height: 6),
             const Text(
-              '3–5 yakınınızın adını ve telefonunu ekleyin. Bu bilgiler ve durum bildiriminiz yalnızca bu cihazda saklanır.',
+              'Yakın ekleyip güvenlik ağı daveti gönderin. Durumlar yalnızca gerçek Firebase hesabı bulunan ve daveti kabul eden kişilerle paylaşılır. 30 dakikadan eski bildirimler “Ulaşılamıyor” görünür.',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -767,30 +1095,159 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                 )
               else
                 ..._safetyContacts.map(
-                  (contact) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    leading: const CircleAvatar(
-                      radius: 17,
-                      child: Icon(Icons.person_outline_rounded, size: 18),
-                    ),
-                    title: Text(
-                      contact.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text(contact.phone),
-                    trailing: IconButton(
-                      tooltip: 'Yakını sil',
-                      onPressed: _isSavingContacts
-                          ? null
-                          : () => _removeSafetyContact(contact),
-                      icon: const Icon(
-                        Icons.remove_circle_outline_rounded,
-                        color: AppColors.emergencyRed,
+                  (contact) => Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        leading: const CircleAvatar(
+                          radius: 17,
+                          child: Icon(Icons.person_outline_rounded, size: 18),
+                        ),
+                        title: Text(
+                          contact.name,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          contact.phone.isEmpty
+                              ? 'Güvenlik ağı üyesi'
+                              : contact.phone,
+                        ),
+                        trailing: IconButton(
+                          tooltip: 'Yakını sil',
+                          onPressed: _isSavingContacts
+                              ? null
+                              : () => _removeSafetyContact(contact),
+                          icon: const Icon(
+                            Icons.remove_circle_outline_rounded,
+                            color: AppColors.emergencyRed,
+                          ),
+                        ),
                       ),
+                      _buildContactLiveStatus(contact),
+                      if (contact.inviteCode == null &&
+                          _safetyCircleService.canUseLiveSharing(
+                            widget.user.uid,
+                          ))
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => _createSafetyInvite(contact),
+                            icon: const Icon(Icons.send_rounded, size: 16),
+                            label: const Text('Güvenlik ağı daveti gönder'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              if (!_safetyCircleService.canUseLiveSharing(widget.user.uid))
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.warning.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Text(
+                    'Canlı davet için demo oturumundan çıkıp Firebase Authentication ile açılmış gerçek bir hesapla giriş yapın. Bu oturumda davet gönderilemez.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _acceptSafetyInvite,
+                  icon: const Icon(Icons.group_add_rounded, size: 18),
+                  label: const Text('Davet Kodunu Kabul Et'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isQueueingEmergencySms
+                      ? null
+                      : _queueEmergencySms,
+                  icon: _isQueueingEmergencySms
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sms_outlined),
+                  label: Text(
+                    _isQueueingEmergencySms
+                        ? 'Acil SMS kuyruğa ekleniyor…'
+                        : 'Yardım SMS\'ini çevrimdışı kuyruğa al',
+                  ),
+                ),
+              ),
+              if (_pendingEmergencySmsDrafts.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Bekleyen acil SMS taslakları (${_pendingEmergencySmsDrafts.length})',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                ..._pendingEmergencySmsDrafts.map(
+                  (draft) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: const Icon(
+                      Icons.pending_actions_rounded,
+                      color: AppColors.warning,
+                    ),
+                    title: Text(
+                      'Kaydedildi • ${draft.createdAt.toLocal()}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: const Text(
+                      'Henüz gönderilmedi; resmî SMS hedefi yapılandırılmadı.',
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      tooltip: 'SMS taslağı işlemleri',
+                      onSelected: (action) {
+                        if (action == 'open') {
+                          _openEmergencySmsDraft(draft);
+                        } else if (action == 'sent') {
+                          _markEmergencySmsSent(draft);
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'open',
+                          child: Text('SMS uygulamasında aç'),
+                        ),
+                        PopupMenuItem(
+                          value: 'sent',
+                          child: Text('Gönderildi olarak işaretle'),
+                        ),
+                      ],
+                      child: const Icon(Icons.more_vert_rounded),
+                    ),
+                  ),
+                ),
+              ],
+              if (_smsError != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _smsError!,
+                  style: const TextStyle(
+                    color: AppColors.emergencyRed,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -869,6 +1326,99 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildContactLiveStatus(SafetyCircleContact contact) {
+    final inviteCode = contact.inviteCode;
+    if (inviteCode == null ||
+        !_safetyCircleService.canUseLiveSharing(widget.user.uid)) {
+      return _buildStatusCard(
+        title: 'Ulaşılamıyor',
+        subtitle: inviteCode == null
+            ? 'Canlı paylaşım için davet kabul edilmeli.'
+            : 'Bu oturum Firebase ile doğrulanmadı.',
+        color: AppColors.textSecondary,
+        icon: Icons.signal_wifi_connected_no_internet_4_rounded,
+      );
+    }
+
+    return StreamBuilder(
+      stream: _safetyCircleService.watchContactStatus(
+        userId: widget.user.uid,
+        inviteCode: inviteCode,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildStatusCard(
+            title: 'Ulaşılamıyor',
+            subtitle: 'Canlı durum alınamadı: ${snapshot.error}',
+            color: AppColors.textSecondary,
+            icon: Icons.error_outline_rounded,
+          );
+        }
+        final status = snapshot.data;
+        if (status == null || !status.isReachable) {
+          return _buildStatusCard(
+            title: 'Ulaşılamıyor',
+            subtitle: status == null
+                ? 'Davet bekleniyor veya henüz bildirim yok.'
+                : 'Son bildirim ${status.reportedAt.toLocal()}',
+            color: AppColors.textSecondary,
+            icon: Icons.signal_wifi_connected_no_internet_4_rounded,
+          );
+        }
+        final helpRequested = status.status == SafetyStatus.helpRequested;
+        return _buildStatusCard(
+          title: helpRequested ? 'Yardım İstedi' : 'Güvende',
+          subtitle:
+              '${status.reportedAt.toLocal()}${status.placeName == null ? '' : ' • ${status.placeName}'}',
+          color: helpRequested ? AppColors.emergencyRed : AppColors.success,
+          icon: helpRequested ? Icons.sos_rounded : Icons.verified_user_rounded,
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusCard({
+    required String title,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1045,24 +1595,24 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             ),
             const SizedBox(height: 16),
             CustomPrimaryButton(
-              text: 'Yardım Çağrısını Gönder (AI Sınıflandırma)',
+              text: 'Acil SMS taslağını yerel kuyruğa ekle',
               color: AppColors.emergencyRed,
-              onPressed: () {
+              onPressed: () async {
+                final reportText = textCtrl.text.trim();
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Yardım talebiniz Meta AI (classifyReport) ile acil olarak kriz merkezine iletildi!',
-                    ),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
+                await _queueEmergencySms(reportText: reportText);
               },
             ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _statusRefreshTimer?.cancel();
+    super.dispose();
   }
 }
 

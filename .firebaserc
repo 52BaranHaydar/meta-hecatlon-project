@@ -1,6 +1,8 @@
 {
   "projects": {
-    "default": "meta-f5d71"
-  }
+    "default": "meta-f5d71",
+    "afet-destek": "meta-f5d71"
+  },
+  "targets": {},
+  "etags": {}
 }
-

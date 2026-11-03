@@ -14,6 +14,7 @@ void main() {
         id: 'contact-1',
         name: 'Ayşe Yılmaz',
         phone: '0555 000 00 00',
+        inviteCode: 'a1b2c3',
       ),
     ]);
     final reportedAt = DateTime(2026, 10, 31, 10);
@@ -32,6 +33,7 @@ void main() {
     final loadedReport = await service.loadLatestReport();
     expect(loadedContacts.single.name, 'Ayşe Yılmaz');
     expect(loadedContacts.single.phone, '0555 000 00 00');
+    expect(loadedContacts.single.inviteCode, 'a1b2c3');
     expect(loadedReport?.reportedAt, reportedAt);
     expect(loadedReport?.placeName, 'Atatürk Parkı');
     expect(loadedReport?.batteryPercent, 72);
@@ -55,5 +57,19 @@ void main() {
     );
 
     await expectLater(service.saveContacts(contacts), throwsArgumentError);
+  });
+
+  test('live status expires after thirty minutes', () {
+    final recent = SafetyStatusSnapshot(
+      status: SafetyStatus.safe,
+      reportedAt: DateTime.now(),
+    );
+    final stale = SafetyStatusSnapshot(
+      status: SafetyStatus.helpRequested,
+      reportedAt: DateTime.now().subtract(const Duration(minutes: 31)),
+    );
+
+    expect(recent.isReachable, isTrue);
+    expect(stale.isReachable, isFalse);
   });
 }

@@ -6,20 +6,23 @@
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "deviceId": "emulator"
+      "deviceId": "emulator",
+      "toolArgs": ["--dart-define-from-file=secret.json"]
     },
     {
       "name": "Afet Destek (Chrome Web)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "deviceId": "chrome"
+      "deviceId": "chrome",
+      "toolArgs": ["--dart-define-from-file=secret.json"]
     },
     {
       "name": "Afet Destek (Otomatik)",
       "request": "launch",
       "type": "dart",
-      "program": "lib/main.dart"
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=secret.json"]
     }
   ]
 }
