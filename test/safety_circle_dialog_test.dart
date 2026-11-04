@@ -1,5 +1,6 @@
 import 'package:afet_destek/models/user_model.dart';
 import 'package:afet_destek/screens/home/citizen_home_screen.dart';
+import 'package:afet_destek/services/language_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +13,7 @@ void main() {
   testWidgets('adding a contact disposes dialog controllers safely', (
     tester,
   ) async {
+    await LanguageService.instance.setLanguage(AppLanguage.en);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -28,16 +30,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Yakın Ekle'));
+    await tester.ensureVisible(find.text('Add Contact'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Yakın Ekle'));
+    await tester.tap(find.text('Add Contact'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField).at(0), 'Ayşe Yılmaz');
+    await tester.enterText(find.byType(TextFormField).at(0), 'Alex Smith');
     await tester.enterText(find.byType(TextFormField).at(1), '05551234567');
-    await tester.tap(find.widgetWithText(FilledButton, 'Ekle'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Add'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ayşe Yılmaz'), findsOneWidget);
+    expect(find.text('Alex Smith'), findsOneWidget);
     expect(find.text('05551234567'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

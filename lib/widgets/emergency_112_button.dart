@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
+import '../services/language_service.dart';
 import 'emergency_sos_screen.dart';
 
 class Emergency112Button extends StatelessWidget {
   final bool compact;
 
-  const Emergency112Button({
-    super.key,
-    this.compact = false,
-  });
+  const Emergency112Button({super.key, this.compact = false});
 
   void _showEmergencySheet(BuildContext context) {
     showModalBottomSheet(
@@ -37,8 +35,8 @@ class Emergency112Button extends StatelessWidget {
             elevation: 2,
           ),
           icon: const Icon(Icons.phone_in_talk_rounded, size: 16),
-          label: const Text(
-            '112 ACİL',
+          label: Text(
+            context.t('112 EMERGENCY', '112 ACİL'),
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
           ),
         ),
@@ -69,11 +67,11 @@ class Emergency112Button extends StatelessWidget {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               Icon(Icons.emergency_rounded, color: Colors.white, size: 20),
               SizedBox(width: 6),
               Text(
-                '112 ACİL ARAMA',
+                context.t('CALL 112', '112 ACİL ARAMA'),
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -94,6 +92,14 @@ class EmergencyActionSheet extends StatelessWidget {
 
   Future<void> _callNumber(BuildContext context, String number) async {
     final messenger = ScaffoldMessenger.of(context);
+    final launchFailure = context.t(
+      'Could not open the phone app for $number.',
+      '$number için telefon arama ekranı açılamadı.',
+    );
+    final callFailure = context.t(
+      'Could not start the phone call:',
+      'Telefon araması başlatılamadı:',
+    );
     Navigator.of(context).pop();
 
     try {
@@ -104,7 +110,7 @@ class EmergencyActionSheet extends StatelessWidget {
       if (!launched) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text('$number için telefon arama ekranı açılamadı.'),
+            content: Text(launchFailure),
             backgroundColor: AppColors.emergencyRed,
           ),
         );
@@ -112,7 +118,7 @@ class EmergencyActionSheet extends StatelessWidget {
     } catch (error) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Telefon araması başlatılamadı: $error'),
+          content: Text('$callFailure $error'),
           backgroundColor: AppColors.emergencyRed,
         ),
       );
@@ -190,12 +196,15 @@ class EmergencyActionSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Acil Yardım Hatları',
+                          context.t(
+                            'Emergency Help Lines',
+                            'Acil Yardım Hatları',
+                          ),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
@@ -203,7 +212,10 @@ class EmergencyActionSheet extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Arama telefon uygulamasında açılır.',
+                          context.t(
+                            'Calls open in your phone app.',
+                            'Arama telefon uygulamasında açılır.',
+                          ),
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -218,7 +230,10 @@ class EmergencyActionSheet extends StatelessWidget {
               _callButton(
                 context,
                 number: '112',
-                title: '112 Acil Çağrı Merkezi',
+                title: context.t(
+                  '112 Emergency Call Center',
+                  '112 Acil Çağrı Merkezi',
+                ),
                 icon: Icons.call_rounded,
                 color: AppColors.emergencyRed,
               ),
@@ -226,14 +241,17 @@ class EmergencyActionSheet extends StatelessWidget {
               _callButton(
                 context,
                 number: '122',
-                title: '122 AFAD',
+                title: context.t('122 AFAD Emergency', '122 AFAD'),
                 icon: Icons.support_agent_rounded,
               ),
               const SizedBox(height: 8),
               _callButton(
                 context,
                 number: '187',
-                title: '187 Doğalgaz Acil',
+                title: context.t(
+                  '187 Natural Gas Emergency',
+                  '187 Doğalgaz Acil',
+                ),
                 icon: Icons.local_fire_department_rounded,
               ),
               const SizedBox(height: 12),
@@ -251,20 +269,23 @@ class EmergencyActionSheet extends StatelessWidget {
                   ),
                 ),
                 icon: const Icon(Icons.flash_on_rounded),
-                label: const Text(
-                  'Tam Ekran SOS Flaşör + Enkaz Düdüğü',
+                label: Text(
+                  context.t(
+                    'Full-screen SOS Strobe + Rescue Whistle',
+                    'Tam Ekran SOS Flaşör + Enkaz Düdüğü',
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Uygulama konumunuzu arama sırasında otomatik olarak iletmez; konumunuzu operatöre söyleyin.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
+              Text(
+                context.t(
+                  'The app does not automatically share your location during a call; tell the operator where you are.',
+                  'Uygulama konumunuzu arama sırasında otomatik olarak iletmez; konumunuzu operatöre söyleyin.',
                 ),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
             ],
           ),

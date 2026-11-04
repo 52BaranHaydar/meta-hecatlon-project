@@ -6,6 +6,7 @@ import '../../constants/meta_ai_config.dart';
 import '../../models/ai_triage_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/crisis_data_service.dart';
+import '../../services/language_service.dart';
 import '../../services/location_service.dart';
 import '../../services/safety_circle_service.dart';
 import '../../services/safety_sms_service.dart';
@@ -35,7 +36,13 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
   void initState() {
     super.initState();
     _activeResult = _crisisService.reports.first;
-    _reportController.text = _activeResult!.rawText;
+    final english = LanguageService.instance.isEnglish;
+    _locationController.text = english
+        ? 'Central Şehitkamil, Gaziantep'
+        : 'Şehitkamil, Osmangazi Mah. No: 18';
+    _reportController.text = english
+        ? 'There is a building collapse and people may be trapped inside.'
+        : _activeResult!.rawText;
     _loadPendingSmsDrafts();
   }
 
@@ -49,7 +56,12 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Bekleyen SMS kuyruğu yüklenemedi: $error'),
+          content: Text(
+            context.t(
+              'Could not load pending SMS queue: $error',
+              'Bekleyen SMS kuyruğu yüklenemedi: $error',
+            ),
+          ),
           backgroundColor: AppColors.emergencyRed,
         ),
       );
@@ -82,8 +94,14 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
         SnackBar(
           content: Text(
             queued
-                ? 'Bağlantı doğrulanamadı; ihbar SMS kuyruğuna kaydedildi. Hata: $error'
-                : 'Bağlantı doğrulanamadı ve ihbar SMS kuyruğuna eklenemedi. Hata: $error',
+                ? context.t(
+                    'Could not verify the connection; the report was saved to the SMS queue. Error: $error',
+                    'Bağlantı doğrulanamadı; ihbar SMS kuyruğuna kaydedildi. Hata: $error',
+                  )
+                : context.t(
+                    'Could not verify the connection and the report could not be added to the SMS queue. Error: $error',
+                    'Bağlantı doğrulanamadı ve ihbar SMS kuyruğuna eklenemedi. Hata: $error',
+                  ),
           ),
           backgroundColor: AppColors.warning,
         ),
@@ -98,8 +116,14 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
         SnackBar(
           content: Text(
             queued
-                ? 'İnternet yok. İhbar SMS kuyruğuna kaydedildi; henüz gönderilmedi.'
-                : 'İnternet yok ve ihbar SMS kuyruğuna eklenemedi.',
+                ? context.t(
+                    'No internet connection. The report was added to the SMS queue but has not been sent.',
+                    'İnternet yok. İhbar SMS kuyruğuna kaydedildi; henüz gönderilmedi.',
+                  )
+                : context.t(
+                    'No internet connection and the report could not be added to the SMS queue.',
+                    'İnternet yok ve ihbar SMS kuyruğuna eklenemedi.',
+                  ),
           ),
           backgroundColor: AppColors.warning,
           duration: Duration(seconds: 6),
@@ -111,6 +135,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
     final result = await _crisisService.classifyAndSubmitReport(
       text,
       location: _locationController.text,
+      english: LanguageService.instance.isEnglish,
     );
 
     if (mounted) {
@@ -122,7 +147,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'İhbar (${result.id} • ${result.urgency.title}) Kriz Masası ekranına ve Firebase\'e canlı olarak iletildi!',
+            context.t(
+              'Report (${result.id} • ${_localizedUrgency(result.urgency.title)}) sent live to the Crisis Center and Firebase!',
+              'İhbar (${result.id} • ${result.urgency.title}) Kriz Masası ekranına ve Firebase\'e canlı olarak iletildi!',
+            ),
           ),
           backgroundColor: AppColors.success,
           duration: const Duration(seconds: 3),
@@ -139,7 +167,12 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('SMS kuyruğuna kaydedilemedi: $error'),
+            content: Text(
+              context.t(
+                'Could not save to the SMS queue: $error',
+                'SMS kuyruğuna kaydedilemedi: $error',
+              ),
+            ),
             backgroundColor: AppColors.emergencyRed,
           ),
         );
@@ -185,9 +218,12 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       if (!mounted) return;
       if (!launched) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'SMS uygulaması açılamadı; taslak kuyrukta tutuluyor.',
+              context.t(
+                'Could not open the SMS app; the draft remains queued.',
+                'SMS uygulaması açılamadı; taslak kuyrukta tutuluyor.',
+              ),
             ),
             backgroundColor: AppColors.emergencyRed,
           ),
@@ -195,9 +231,12 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'SMS uygulaması açıldı. Alıcıyı seçip Gönder’e basmanız gerekir.',
+            context.t(
+              'The SMS app is open. Select a recipient and tap Send.',
+              'SMS uygulaması açıldı. Alıcıyı seçip Gönder’e basmanız gerekir.',
+            ),
           ),
           duration: Duration(seconds: 6),
         ),
@@ -206,7 +245,12 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('SMS taslağı açılamadı: $error'),
+          content: Text(
+            context.t(
+              'Could not open SMS draft: $error',
+              'SMS taslağı açılamadı: $error',
+            ),
+          ),
           backgroundColor: AppColors.emergencyRed,
         ),
       );
@@ -231,7 +275,12 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('SMS kuyruğu güncellenemedi: $error'),
+          content: Text(
+            context.t(
+              'Could not update SMS queue: $error',
+              'SMS kuyruğu güncellenemedi: $error',
+            ),
+          ),
           backgroundColor: AppColors.emergencyRed,
         ),
       );
@@ -244,9 +293,12 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
-          'Ses komutu simülasyonu: “Yardım İstiyorum” algılanıyor…',
+          context.t(
+            'Voice command simulation: detecting “I need help”…',
+            'Ses komutu simülasyonu: “Yardım İstiyorum” algılanıyor…',
+          ),
         ),
         backgroundColor: AppColors.primaryBlue,
         duration: Duration(seconds: 2),
@@ -257,8 +309,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       if (mounted) {
         setState(() {
           _isListening = false;
-          _reportController.text =
-              'Yardım istiyorum. Enkaz altında mahsur kaldım, konumuma acil ekip gönderin.';
+          _reportController.text = context.t(
+            'I need help. I am trapped under rubble; send an emergency team to my location.',
+            'Yardım istiyorum. Enkaz altında mahsur kaldım, konumuma acil ekip gönderin.',
+          );
         });
         await _vibrateForVoiceCommand();
         _runAiClassification(_reportController.text);
@@ -273,7 +327,12 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Titreşim uyarısı başlatılamadı: $error'),
+          content: Text(
+            context.t(
+              'Could not start vibration alert: $error',
+              'Titreşim uyarısı başlatılamadı: $error',
+            ),
+          ),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -299,7 +358,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          children: const [
+                          children: [
                             Icon(
                               Icons.psychology_rounded,
                               color: AppColors.primaryBlue,
@@ -308,7 +367,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                             SizedBox(width: 8),
                             Flexible(
                               child: Text(
-                                'Meta AI Triage İstasyonu',
+                                context.t(
+                                  'Meta AI Triage Station',
+                                  'Meta AI Triage İstasyonu',
+                                ),
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
@@ -320,7 +382,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Meta Llama 3 (${MetaAiConfig.maskedKey}) ile Anlık Afet İhbar & Canlı Aktarım',
+                          context.t(
+                            'Live disaster report triage & transmission with Meta Llama 3 (${MetaAiConfig.maskedKey})',
+                            'Meta Llama 3 (${MetaAiConfig.maskedKey}) ile Anlık Afet İhbar & Canlı Aktarım',
+                          ),
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
@@ -352,8 +417,11 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'İhbar veya Yardım Mesajınızı Girin',
+                    Text(
+                      context.t(
+                        'Enter a Report or Request for Help',
+                        'İhbar veya Yardım Mesajınızı Girin',
+                      ),
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -361,8 +429,11 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Gönderdiğiniz ihbar Meta Llama 3 tarafından aciliyetine göre sınıflandırılır ve doğrudan Admin Kriz Masası canlı akışına düşer.',
+                    Text(
+                      context.t(
+                        'Your report is triaged by Meta Llama 3 and sent directly to the Admin Crisis Center live feed.',
+                        'Gönderdiğiniz ihbar Meta Llama 3 tarafından aciliyetine göre sınıflandırılır ve doğrudan Admin Kriz Masası canlı akışına düşer.',
+                      ),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -377,16 +448,25 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       runSpacing: 8,
                       children: [
                         _buildScenarioChip(
-                          '🏚️ Enkaz & Çökme',
-                          AiTriageResult.sampleScenarios[0].rawText,
+                          context.t(
+                            '🏚️ Rubble & Collapse',
+                            '🏚️ Enkaz & Çökme',
+                          ),
+                          _sampleScenarioText(0),
                         ),
                         _buildScenarioChip(
-                          '🩸 Kalp & İlaç Acil',
-                          AiTriageResult.sampleScenarios[1].rawText,
+                          context.t(
+                            '🩸 Heart & Medication Emergency',
+                            '🩸 Kalp & İlaç Acil',
+                          ),
+                          _sampleScenarioText(1),
                         ),
                         _buildScenarioChip(
-                          '💧 Su & Bebek Maması',
-                          AiTriageResult.sampleScenarios[2].rawText,
+                          context.t(
+                            '💧 Water & Infant Formula',
+                            '💧 Su & Bebek Maması',
+                          ),
+                          _sampleScenarioText(2),
                         ),
                       ],
                     ),
@@ -397,7 +477,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       controller: _locationController,
                       style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
-                        labelText: 'Konum / Açık Adres',
+                        labelText: context.t(
+                          'Location / Street Address',
+                          'Konum / Açık Adres',
+                        ),
                         prefixIcon: const Icon(
                           Icons.location_on_rounded,
                           color: AppColors.emergencyRed,
@@ -418,8 +501,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       maxLines: 3,
                       style: const TextStyle(fontSize: 14, height: 1.4),
                       decoration: InputDecoration(
-                        hintText:
-                            'Örn: 4. katta yangın çıktı ve 2 yaşlı insan tahliye edilemiyor...',
+                        hintText: context.t(
+                          'Example: There is a fire on the 4th floor and two elderly people cannot evacuate...',
+                          'Örn: 4. katta yangın çıktı ve 2 yaşlı insan tahliye edilemiyor...',
+                        ),
                         fillColor: const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -459,7 +544,9 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                             size: 20,
                           ),
                           label: Text(
-                            _isListening ? 'Dinleniyor...' : 'Sesli İhbar',
+                            _isListening
+                                ? context.t('Listening...', 'Dinleniyor...')
+                                : context.t('Voice Report', 'Sesli İhbar'),
                             style: TextStyle(
                               color: _isListening
                                   ? AppColors.emergencyRed
@@ -499,8 +586,14 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                                   ),
                             label: Text(
                               _isAnalyzing
-                                  ? 'Analiz Ediliyor...'
-                                  : 'Sınıflandır & Kriz Masasına İlet',
+                                  ? context.t(
+                                      'Analyzing...',
+                                      'Analiz Ediliyor...',
+                                    )
+                                  : context.t(
+                                      'Classify & Send to Crisis Center',
+                                      'Sınıflandır & Kriz Masasına İlet',
+                                    ),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 13,
@@ -524,7 +617,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Çevrimdışı SMS kuyruğu (${_pendingSmsDrafts.length})',
+                          context.t(
+                            'Offline SMS Queue (${_pendingSmsDrafts.length})',
+                            'Çevrimdışı SMS kuyruğu (${_pendingSmsDrafts.length})',
+                          ),
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             color: AppColors.textPrimary,
@@ -533,8 +629,14 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                         const SizedBox(height: 4),
                         Text(
                           SafetySmsService.emergencySmsTarget.isEmpty
-                              ? '112/AFAD SMS hedefi yapılandırılmadı. Taslak alıcı olmadan açılır; mesajı göndermek için alıcı seçip Gönder’e basın.'
-                              : 'SMS taslağı henüz gönderilmedi. Göndermek için SMS uygulamasında Gönder’e basın.',
+                              ? context.t(
+                                  'The 112/AFAD SMS recipient is not configured. Select a recipient in the SMS app and tap Send.',
+                                  '112/AFAD SMS hedefi yapılandırılmadı. Taslak alıcı olmadan açılır; mesajı göndermek için alıcı seçip Gönder’e basın.',
+                                )
+                              : context.t(
+                                  'The SMS draft has not been sent. Tap Send in your SMS app to send it.',
+                                  'SMS taslağı henüz gönderilmedi. Göndermek için SMS uygulamasında Gönder’e basın.',
+                                ),
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
@@ -559,12 +661,18 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                               spacing: 4,
                               children: [
                                 IconButton(
-                                  tooltip: 'SMS taslağını aç',
+                                  tooltip: context.t(
+                                    'Open SMS draft',
+                                    'SMS taslağını aç',
+                                  ),
                                   onPressed: () => _openPendingSms(draft),
                                   icon: const Icon(Icons.open_in_new_rounded),
                                 ),
                                 IconButton(
-                                  tooltip: 'Gönderildi olarak işaretle',
+                                  tooltip: context.t(
+                                    'Mark as sent',
+                                    'Gönderildi olarak işaretle',
+                                  ),
                                   onPressed: () => _removePendingSms(draft),
                                   icon: const Icon(Icons.check_circle_outline),
                                 ),
@@ -584,8 +692,11 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Meta Llama 3 Triage Sonuç Raporu',
+                    Text(
+                      context.t(
+                        'Meta Llama 3 Triage Report',
+                        'Meta Llama 3 Triage Sonuç Raporu',
+                      ),
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -603,7 +714,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
-                          children: const [
+                          children: [
                             Icon(
                               Icons.cloud_done_rounded,
                               size: 14,
@@ -611,7 +722,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                             ),
                             SizedBox(width: 4),
                             Text(
-                              'Kriz Masasına İletildi',
+                              context.t(
+                                'Sent to Crisis Center',
+                                'Kriz Masasına İletildi',
+                              ),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
@@ -632,6 +746,108 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
       ),
     );
   }
+
+  String _sampleScenarioText(int index) {
+    if (!LanguageService.instance.isEnglish) {
+      return AiTriageResult.sampleScenarios[index].rawText;
+    }
+    return switch (index) {
+      0 =>
+        'A building has collapsed and a family is calling for help inside. There is also a smell of gas.',
+      1 =>
+        'Our 72-year-old grandfather has heart disease and needs urgent medication and oxygen.',
+      _ =>
+        'The tent camp has run out of clean drinking water and urgently needs formula for 40 babies.',
+    };
+  }
+
+  String _localizedUrgency(String title) => switch (title) {
+    'KRİTİK' => context.t('CRITICAL', title),
+    'YÜKSEK' => context.t('HIGH', title),
+    'ORTA' => context.t('MEDIUM', title),
+    'DÜŞÜK' => context.t('LOW', title),
+    _ => title,
+  };
+
+  String _localizedTriageCategory(String category) => switch (category) {
+    'ENKAZ & ARAMA KURTARMA' => context.t(
+      'RUBBLE & SEARCH AND RESCUE',
+      category,
+    ),
+    'SAĞLIK & MEDİKAL' => context.t('HEALTH & MEDICAL', category),
+    'SU & TEMEL YAŞAM' => context.t('WATER & ESSENTIALS', category),
+    'GENEL İHBAR' => context.t('GENERAL REPORT', category),
+    _ => category,
+  };
+
+  String _localizedTriageLocation(String location) => switch (location) {
+    'Şehitkamil, Osmangazi Mah. No: 18' => context.t(
+      'Şehitkamil, Osmangazi Neighborhood, No. 18',
+      location,
+    ),
+    'Şehitkamil, Osmangazi Mah. No: 14' => context.t(
+      'Şehitkamil, Osmangazi Neighborhood, No. 14',
+      location,
+    ),
+    'İstasyon Cad. Sahra Bölgesi B Blok' => context.t(
+      'İstasyon Street, Field Hospital Area, Block B',
+      location,
+    ),
+    'Atatürk Parkı 2. Çadır Alanı' => context.t(
+      'Atatürk Park Tent Area No. 2',
+      location,
+    ),
+    _ => location,
+  };
+
+  String _localizedRecommendedAction(String action) => switch (action) {
+    'Acil Arama Kurtarma (AKUT/AFAD) ve Doğalgaz Acil Ekibi ivedilikle yönlendirilmeli. Gaz patlaması riski nedeniyle ateş yakılmamalı.' =>
+      context.t(
+        'Dispatch search-and-rescue (AKUT/AFAD) and the natural gas emergency team immediately. Do not use flames due to the risk of a gas explosion.',
+        action,
+      ),
+    'En yakın Sahra Hastanesi mobil sağlık timi yönlendirildi. Hastayı sakin ve yarı oturur pozisyonda tutunuz.' =>
+      context.t(
+        'The nearest field hospital mobile medical team has been dispatched. Keep the patient calm and semi-seated.',
+        action,
+      ),
+    'En yakın yardım konvoyuna (Adana Lojistik sevkiyatı) rota güncellenerek 200 koli su ve bebek maması sevk emri verildi.' =>
+      context.t(
+        'The nearest aid convoy has been rerouted and ordered to deliver 200 cartons of water and infant formula.',
+        action,
+      ),
+    _ => action,
+  };
+
+  String _localizedResource(String resource) => switch (resource) {
+    'Ses Dinleme Cihazı' => context.t('Acoustic Listening Device', resource),
+    'K9 Kurtarma Köpeği' => context.t('K9 Search-and-Rescue Dog', resource),
+    'Gaz Dedektörü' => context.t('Gas Detector', resource),
+    'Hidrolik Kesici' => context.t('Hydraulic Cutter', resource),
+    'Taşınabilir Oksijen' => context.t('Portable Oxygen', resource),
+    'Acil Kardiyo İlaçları' => context.t(
+      'Emergency Cardiac Medication',
+      resource,
+    ),
+    'Mobil Sağlık Ekibi' => context.t('Mobile Medical Team', resource),
+    '0.5L İçme Suyu' => context.t('0.5 L Drinking Water', resource),
+    'Bebek Maması (0-12 Ay)' => context.t(
+      'Infant Formula (0–12 months)',
+      resource,
+    ),
+    'Hijyen Kiti' => context.t('Hygiene Kit', resource),
+    _ => resource,
+  };
+
+  String _localizedEta(String eta) => switch (eta) {
+    'Altın İlk 4 Saat İçinde Müdahale Şart' => context.t(
+      'Response required within the critical first 4 hours',
+      eta,
+    ),
+    'Maksimum 30 Dakika' => context.t('Within 30 minutes', eta),
+    '2-4 Saat İçinde İkmal' => context.t('Resupply within 2–4 hours', eta),
+    _ => eta,
+  };
 
   Widget _buildScenarioChip(String label, String text) {
     return ActionChip(
@@ -689,7 +905,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                     Icon(urgency.icon, size: 16, color: urgency.color),
                     const SizedBox(width: 6),
                     Text(
-                      '${urgency.title} ACİLİYET (%${(result.confidenceScore * 100).round()})',
+                      '${_localizedUrgency(urgency.title)} ${context.t('URGENCY', 'ACİLİYET')} (%${(result.confidenceScore * 100).round()})',
                       style: TextStyle(
                         color: urgency.color,
                         fontWeight: FontWeight.w900,
@@ -722,7 +938,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            result.category,
+            _localizedTriageCategory(result.category),
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
@@ -740,7 +956,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  result.location,
+                  _localizedTriageLocation(result.location),
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -762,7 +978,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
+                  children: [
                     Icon(
                       Icons.shield_outlined,
                       size: 16,
@@ -770,7 +986,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                     ),
                     SizedBox(width: 6),
                     Text(
-                      'Yapay Zeka Müdahale & Güvenlik Direktifi:',
+                      context.t(
+                        'AI Response & Safety Instructions:',
+                        'Yapay Zeka Müdahale & Güvenlik Direktifi:',
+                      ),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -781,7 +1000,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  result.recommendedAction,
+                  _localizedRecommendedAction(result.recommendedAction),
                   style: const TextStyle(
                     fontSize: 13,
                     height: 1.4,
@@ -792,8 +1011,11 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Sevk Edilmesi Gereken Ekipman & Kaynaklar:',
+          Text(
+            context.t(
+              'Required Equipment & Resources:',
+              'Sevk Edilmesi Gereken Ekipman & Kaynaklar:',
+            ),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
@@ -824,7 +1046,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      res,
+                      _localizedResource(res),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -837,25 +1059,30 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.timer_outlined,
-                    size: 15,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    result.etaWindow,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.timer_outlined,
+                      size: 15,
                       color: AppColors.textSecondary,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        _localizedEta(result.etaWindow),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               if (result.shouldTrigger112)
                 Container(
@@ -867,8 +1094,8 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                     color: AppColors.emergencyRed.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    '112 Dispatch Aktif',
+                  child: Text(
+                    context.t('112 Dispatch Active', '112 Dispatch Aktif'),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,

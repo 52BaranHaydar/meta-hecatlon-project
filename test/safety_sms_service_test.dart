@@ -41,6 +41,37 @@ void main() {
     expect(message, contains('Konum: GPS konumu alınamadı.'));
   });
 
+  test('SMS drafts can be composed in English', () {
+    final safetyMessage = SafetySmsService.composeMessage(
+      citizenName: 'Alex Smith',
+      bloodGroup: null,
+      report: SafetyStatusReport(reportedAt: DateTime(2026, 10, 31, 12)),
+      english: true,
+    );
+    final emergencyMessage = SafetySmsService.composeEmergencyMessage(
+      citizenName: 'Alex Smith',
+      reportText: 'I need help.',
+      location: '',
+      english: true,
+    );
+    final inviteMessage = SafetySmsService.composeInviteMessage(
+      inviterName: 'Alex Smith',
+      inviteCode: 'test-code',
+      english: true,
+    );
+
+    expect(safetyMessage, contains('I AM SAFE'));
+    expect(safetyMessage, contains('Blood type: Not specified'));
+    expect(safetyMessage, contains('Location: GPS location unavailable.'));
+    expect(emergencyMessage, contains('I NEED EMERGENCY HELP'));
+    expect(emergencyMessage, contains('Address: Not specified'));
+    expect(inviteMessage, contains('Accept Invitation Code'));
+    expect(
+      '$safetyMessage\n$emergencyMessage\n$inviteMessage',
+      isNot(contains('GÜVENDEYİM')),
+    );
+  });
+
   test(
     'emergency SMS queue persists drafts until explicitly removed',
     () async {

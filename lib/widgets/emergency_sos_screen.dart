@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:torch_light/torch_light.dart';
 
 import '../services/auth_service.dart';
+import '../services/language_service.dart';
 import '../services/safety_circle_service.dart';
 
 class EmergencySosScreen extends StatefulWidget {
@@ -46,21 +47,30 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
       builder: (context) => PopScope(
         canPop: false,
         child: AlertDialog(
-          title: const Text('Fener ve titreşim uyarısı'),
-          content: const Text(
-            'SOS mors flaşı yanıp sönen arka kamera ışığını kullanır. '
-            'Epilepsi nöbeti geçiren veya ışığa hassasiyeti olan kişiler '
-            'feneri açmamalıdır. Dilerseniz yalnızca ses ve titreşim '
-            'uyarısını kullanabilirsiniz.',
+          title: Text(
+            context.t(
+              'Flashlight and vibration safety',
+              'Fener ve titreşim uyarısı',
+            ),
+          ),
+          content: Text(
+            context.t(
+              'The SOS Morse flash uses the blinking rear camera light. People with epilepsy or light sensitivity should not enable the flashlight. You can use sound and vibration alerts only.',
+              'SOS mors flaşı yanıp sönen arka kamera ışığını kullanır. Epilepsi nöbeti geçiren veya ışığa hassasiyeti olan kişiler feneri açmamalıdır. Dilerseniz yalnızca ses ve titreşim uyarısını kullanabilirsiniz.',
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('FENERİ KAPALI TUT'),
+              child: Text(
+                context.t('KEEP FLASHLIGHT OFF', 'FENERİ KAPALI TUT'),
+              ),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('SOS FENERİNİ AÇ'),
+              child: Text(
+                context.t('ENABLE SOS FLASHLIGHT', 'SOS FENERİNİ AÇ'),
+              ),
             ),
           ],
         ),
@@ -114,7 +124,12 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
         }
       } catch (error) {
         if (mounted) {
-          setState(() => _torchError = 'Fener kapatılamadı: $error');
+          setState(
+            () => _torchError = context.t(
+              'Could not turn off flashlight: $error',
+              'Fener kapatılamadı: $error',
+            ),
+          );
         }
       }
       return;
@@ -136,7 +151,10 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
       if (!mounted) return;
       setState(() {
         _isTorchEnabled = false;
-        _torchError = 'SOS feneri başlatılamadı: $error';
+        _torchError = context.t(
+          'Could not start SOS flashlight: $error',
+          'SOS feneri başlatılamadı: $error',
+        );
       });
       try {
         await TorchLight.disableTorch();
@@ -159,7 +177,10 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
       if (mounted) {
         setState(() {
           _isTorchEnabled = false;
-          _torchError = 'SOS flaş/titreşim döngüsü durdu: $error';
+          _torchError = context.t(
+            'SOS flash/vibration cycle stopped: $error',
+            'SOS flaş/titreşim döngüsü durdu: $error',
+          );
         });
       }
       return;
@@ -169,7 +190,12 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
         await HapticFeedback.selectionClick();
       } catch (error) {
         if (mounted) {
-          setState(() => _torchError = 'Titreşim uyarısı başlatılamadı: $error');
+          setState(
+            () => _torchError = context.t(
+              'Could not start vibration alert: $error',
+              'Titreşim uyarısı başlatılamadı: $error',
+            ),
+          );
         }
       }
     }
@@ -187,7 +213,10 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
     try {
       await HapticFeedback.vibrate();
     } catch (error) {
-      vibrationError = 'Titreşim uyarısı başlatılamadı: $error';
+      vibrationError = LanguageService.instance.text(
+        'Could not start vibration alert: $error',
+        'Titreşim uyarısı başlatılamadı: $error',
+      );
     }
     await _setTorchEnabled(true);
     if (mounted && vibrationError != null) {
@@ -200,28 +229,40 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
     if (user == null) {
       if (mounted) {
         setState(
-          () => _statusMessage =
-              'Yardım durumu canlı paylaşılmadı; kullanıcı oturumu yok.',
+          () => _statusMessage = context.t(
+            'Help status was not shared live; no user session is available.',
+            'Yardım durumu canlı paylaşılmadı; kullanıcı oturumu yok.',
+          ),
         );
       }
       return;
     }
 
     try {
-      final recipientCount = await SafetyCircleService(user.uid).publishStatus(
-        userId: user.uid,
-        status: SafetyStatus.helpRequested,
-      );
+      final recipientCount = await SafetyCircleService(
+        user.uid,
+      ).publishStatus(userId: user.uid, status: SafetyStatus.helpRequested);
       if (mounted) {
         setState(
           () => _statusMessage = recipientCount == 0
-              ? 'Yardım durumu kaydedilmedi: henüz daveti kabul eden yakın yok.'
-              : 'Yardım durumu $recipientCount yakınla paylaşıldı.',
+              ? context.t(
+                  'Help status was not saved: no contacts have accepted an invitation yet.',
+                  'Yardım durumu kaydedilmedi: henüz daveti kabul eden yakın yok.',
+                )
+              : context.t(
+                  'Help status shared with $recipientCount contacts.',
+                  'Yardım durumu $recipientCount yakınla paylaşıldı.',
+                ),
         );
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _statusMessage = 'Canlı yardım bildirimi başarısız: $error');
+        setState(
+          () => _statusMessage = context.t(
+            'Live help alert failed: $error',
+            'Canlı yardım bildirimi başarısız: $error',
+          ),
+        );
       }
     }
   }
@@ -241,7 +282,10 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
       if (mounted) {
         setState(() {
           _isWhistlePlaying = false;
-          _soundError = 'Siren sesi başlatılamadı: $error';
+          _soundError = context.t(
+            'Could not start siren sound: $error',
+            'Siren sesi başlatılamadı: $error',
+          );
         });
       }
     }
@@ -253,7 +297,12 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
       if (mounted) setState(() => _isWhistlePlaying = false);
     } catch (error) {
       if (mounted) {
-        setState(() => _soundError = 'Siren sesi durdurulamadı: $error');
+        setState(
+          () => _soundError = context.t(
+            'Could not stop siren sound: $error',
+            'Siren sesi durdurulamadı: $error',
+          ),
+        );
       }
     }
   }
@@ -299,8 +348,8 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'YARDIM BEKLİYORUM',
+                Text(
+                  context.t('I NEED HELP', 'YARDIM BEKLİYORUM'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
@@ -326,7 +375,15 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
                         : Icons.flash_on_rounded,
                   ),
                   label: Text(
-                    _isTorchEnabled ? 'SOS FENERİNİ KAPAT' : 'SOS FENERİNİ AÇ',
+                    _isTorchEnabled
+                        ? context.t(
+                            'TURN OFF SOS FLASHLIGHT',
+                            'SOS FENERİNİ KAPAT',
+                          )
+                        : context.t(
+                            'TURN ON SOS FLASHLIGHT',
+                            'SOS FENERİNİ AÇ',
+                          ),
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -346,8 +403,14 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
                   icon: const Icon(Icons.mic_rounded),
                   label: Text(
                     _isVoiceCommandDetected
-                        ? 'KOMUT ALGILANDI (SİMÜLASYON)'
-                        : '“YARDIM İSTİYORUM” KOMUTUNU SİMÜLE ET',
+                        ? context.t(
+                            'COMMAND DETECTED (SIMULATION)',
+                            'KOMUT ALGILANDI (SİMÜLASYON)',
+                          )
+                        : context.t(
+                            'SIMULATE “I NEED HELP” COMMAND',
+                            '“YARDIM İSTİYORUM” KOMUTUNU SİMÜLE ET',
+                          ),
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
@@ -369,7 +432,9 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
                         : Icons.volume_up_rounded,
                   ),
                   label: Text(
-                    _isWhistlePlaying ? 'SİRENİ DURDUR' : 'SİRENİ ÇAL',
+                    _isWhistlePlaying
+                        ? context.t('STOP SIREN', 'SİRENİ DURDUR')
+                        : context.t('PLAY SIREN', 'SİRENİ ÇAL'),
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -388,18 +453,18 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
                   ),
                 ],
                 const SizedBox(height: 24),
-                const Text(
-                  'Sesli komut gerçek konuşma tanıma değildir; düğme simülasyonu '
-                  'başlatır. SOS flaşında arka kamera feneri ve titreşim kullanılır. '
-                  'Flaş hassasiyetiniz varsa feneri kapalı tutun.',
+                Text(
+                  context.t(
+                    'The voice command is not real speech recognition; the button starts a simulation. The SOS flash uses the rear camera light and vibration. Keep the flashlight off if you are sensitive to flashing lights.',
+                    'Sesli komut gerçek konuşma tanıma değildir; düğme simülasyonu başlatır. SOS flaşında arka kamera feneri ve titreşim kullanılır. Flaş hassasiyetiniz varsa feneri kapalı tutun.',
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).popUntil((route) => route.isFirst),
+                  onPressed: () =>
+                      Navigator.of(context).popUntil((route) => route.isFirst),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFFD50000),
@@ -409,8 +474,8 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
                     ),
                   ),
                   icon: const Icon(Icons.home_rounded),
-                  label: const Text(
-                    'ANA EKRANA DÖN',
+                  label: Text(
+                    context.t('RETURN TO HOME', 'ANA EKRANA DÖN'),
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
