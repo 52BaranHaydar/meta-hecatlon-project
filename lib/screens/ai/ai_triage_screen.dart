@@ -341,8 +341,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
@@ -374,7 +376,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
-                                  color: AppColors.textPrimary,
+                                  color: colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -388,7 +390,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                           ),
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary,
+                            color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -403,7 +405,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
               // Interactive Input Card
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colorScheme.surface,
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
@@ -425,7 +427,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -436,7 +438,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       ),
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: colorScheme.onSurfaceVariant,
                         height: 1.4,
                       ),
                     ),
@@ -486,7 +488,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                           color: AppColors.emergencyRed,
                           size: 18,
                         ),
-                        fillColor: const Color(0xFFF8FAFC),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                           borderSide: const BorderSide(color: AppColors.border),
@@ -505,7 +507,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                           'Example: There is a fire on the 4th floor and two elderly people cannot evacuate...',
                           'Örn: 4. katta yangın çıktı ve 2 yaşlı insan tahliye edilemiyor...',
                         ),
-                        fillColor: const Color(0xFFF8FAFC),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: const BorderSide(color: AppColors.border),
@@ -610,7 +612,11 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
 
               if (_pendingSmsDrafts.isNotEmpty) ...[
                 Card(
-                  color: const Color(0xFFFFF8E1),
+                  color: AppColors.warning.withValues(
+                    alpha: colorScheme.brightness == Brightness.dark
+                        ? 0.16
+                        : 0.12,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
@@ -621,9 +627,9 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                             'Offline SMS Queue (${_pendingSmsDrafts.length})',
                             'Çevrimdışı SMS kuyruğu (${_pendingSmsDrafts.length})',
                           ),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -637,9 +643,9 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                                   'The SMS draft has not been sent. Tap Send in your SMS app to send it.',
                                   'SMS taslağı henüz gönderilmedi. Göndermek için SMS uygulamasında Gönder’e basın.',
                                 ),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                         ..._pendingSmsDrafts.map(
@@ -700,7 +706,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     if (_submittedToAdmin)
@@ -850,12 +856,14 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
   };
 
   Widget _buildScenarioChip(String label, String text) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ActionChip(
       label: Text(
         label,
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       ),
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       side: const BorderSide(color: AppColors.border),
       onPressed: () {
@@ -867,10 +875,11 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
 
   Widget _buildAiResultCard(AiTriageResult result) {
     final urgency = result.urgency;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: urgency.color.withValues(alpha: 0.35),
@@ -922,7 +931,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -939,27 +948,27 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
           const SizedBox(height: 14),
           Text(
             _localizedTriageCategory(result.category),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: AppColors.textPrimary,
+              color: colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.pin_drop_rounded,
                 size: 14,
-                color: AppColors.textSecondary,
+                color: colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   _localizedTriageLocation(result.location),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -970,7 +979,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.border),
             ),
@@ -1001,10 +1010,10 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
                 const SizedBox(height: 6),
                 Text(
                   _localizedRecommendedAction(result.recommendedAction),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     height: 1.4,
-                    color: AppColors.textPrimary,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -1019,7 +1028,7 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -1063,19 +1072,19 @@ class _AiTriageScreenState extends State<AiTriageScreen> {
               Expanded(
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.timer_outlined,
                       size: 15,
-                      color: AppColors.textSecondary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
                         _localizedEta(result.etaWindow),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

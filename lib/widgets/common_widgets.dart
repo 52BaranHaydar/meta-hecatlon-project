@@ -33,15 +33,17 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final textColor = Theme.of(context).colorScheme.onSurface;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           widget.label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: textColor,
           ),
         ),
         const SizedBox(height: 8),
@@ -51,18 +53,22 @@ class _CustomTextFieldState extends State<CustomTextField> {
           keyboardType: widget.keyboardType,
           validator: widget.validator,
           onChanged: widget.onChanged,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
+            color: textColor,
           ),
           decoration: InputDecoration(
             hintText: widget.hint,
-            prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon, size: 20) : null,
+            prefixIcon: widget.prefixIcon != null
+                ? Icon(widget.prefixIcon, size: 20)
+                : null,
             suffixIcon: widget.isPassword
                 ? IconButton(
                     icon: Icon(
-                      _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      _obscureText
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                       size: 20,
                     ),
                     onPressed: () {
@@ -103,7 +109,9 @@ class CustomPrimaryButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: color ?? AppColors.primaryBlue,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
         child: isLoading
             ? const SizedBox(
@@ -198,7 +206,11 @@ class ErrorRetryWidget extends StatelessWidget {
                 color: AppColors.emergencyLight,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline_rounded, color: AppColors.emergencyRed, size: 36),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.emergencyRed,
+                size: 36,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -209,7 +221,10 @@ class ErrorRetryWidget extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(

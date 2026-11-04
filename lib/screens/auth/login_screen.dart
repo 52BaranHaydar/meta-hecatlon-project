@@ -39,9 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainShell()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainShell()));
     } else if (mounted && _authService.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -54,10 +54,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         actions: const [
           LanguageToggleButton(compact: true),
@@ -88,25 +90,28 @@ class _LoginScreenState extends State<LoginScreen> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                          border: Border.all(color: colorScheme.outlineVariant),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.auto_awesome,
                               size: 16,
-                              color: Color(0xFF2563EB),
+                              color: colorScheme.onPrimaryContainer,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              context.t('META AI DISASTER COORDINATION', 'META AI AFET KOORDİNASYON'),
-                              style: const TextStyle(
+                              context.t(
+                                'META AI DISASTER COORDINATION',
+                                'META AI AFET KOORDİNASYON',
+                              ),
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF1D4ED8),
+                                color: colorScheme.onPrimaryContainer,
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -124,16 +129,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.5,
-                        color: AppColors.textPrimary,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      context.t('Meta Llama 3 Triage & Smart Evacuation System', 'Meta Llama 3 Triage & Akıllı Tahliye Sistemi'),
+                      context.t(
+                        'Meta Llama 3 Triage & Smart Evacuation System',
+                        'Meta Llama 3 Triage & Akıllı Tahliye Sistemi',
+                      ),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textSecondary,
+                        color: colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -143,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
@@ -161,15 +169,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            context.t('Sign in with your registered email and password. Your role will be loaded automatically.', 'Firebase hesabınıza kayıtlı e-posta ve şifrenizle giriş yapın. Rolünüz otomatik olarak yüklenecektir.'),
+                            context.t(
+                              'Sign in with your registered email and password. Your role will be loaded automatically.',
+                              'Firebase hesabınıza kayıtlı e-posta ve şifrenizle giriş yapın. Rolünüz otomatik olarak yüklenecektir.',
+                            ),
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.textSecondary,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 22),
@@ -182,10 +193,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             keyboardType: TextInputType.emailAddress,
                             validator: (val) {
                               if (val == null || val.trim().isEmpty) {
-                                return context.t('Email address cannot be empty', 'E-posta adresi boş bırakılamaz');
+                                return context.t(
+                                  'Email address cannot be empty',
+                                  'E-posta adresi boş bırakılamaz',
+                                );
                               }
                               if (!val.contains('@')) {
-                                return context.t('Please enter a valid email address', 'Geçerli bir e-posta adresi giriniz');
+                                return context.t(
+                                  'Please enter a valid email address',
+                                  'Geçerli bir e-posta adresi giriniz',
+                                );
                               }
                               return null;
                             },
@@ -200,7 +217,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             isPassword: true,
                             validator: (val) {
                               if (val == null || val.isEmpty) {
-                                return context.t('Password cannot be empty', 'Şifre boş bırakılamaz');
+                                return context.t(
+                                  'Password cannot be empty',
+                                  'Şifre boş bırakılamaz',
+                                );
                               }
                               return null;
                             },
@@ -234,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     context.t('Remember Me', 'Beni Hatırla'),
                                     style: TextStyle(
                                       fontSize: 13,
-                                      color: AppColors.textSecondary,
+                                      color: colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -250,7 +270,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                   );
                                 },
                                 child: Text(
-                                  context.t('Forgot Password?', 'Şifremi Unuttum'),
+                                  context.t(
+                                    'Forgot Password?',
+                                    'Şifremi Unuttum',
+                                  ),
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
@@ -276,13 +299,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               const Expanded(child: Divider()),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8.0,
+                                ),
                                 child: Text(
-                                  context.t('OR QUICK DEMO ACCESS', 'VEYA HIZLI DEMO GİRİŞİ'),
+                                  context.t(
+                                    'OR QUICK DEMO ACCESS',
+                                    'VEYA HIZLI DEMO GİRİŞİ',
+                                  ),
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.textSecondary,
+                                    color: colorScheme.onSurfaceVariant,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
@@ -299,57 +327,102 @@ class _LoginScreenState extends State<LoginScreen> {
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFFDC2626),
-                                  side: const BorderSide(color: Color(0xFFFCA5A5)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  side: const BorderSide(
+                                    color: Color(0xFFFCA5A5),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
                                 ),
-                                icon: const Icon(Icons.shield_outlined, size: 16),
+                                icon: const Icon(
+                                  Icons.shield_outlined,
+                                  size: 16,
+                                ),
                                 label: Text(
                                   context.t('AFAD Admin', 'AFAD Kriz Masası'),
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 onPressed: () {
                                   _authService.switchDemoRole(UserRole.admin);
                                   Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(builder: (_) => const MainShell()),
+                                    MaterialPageRoute(
+                                      builder: (_) => const MainShell(),
+                                    ),
                                   );
                                 },
                               ),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF2563EB),
-                                  side: const BorderSide(color: Color(0xFF93C5FD)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  side: const BorderSide(
+                                    color: Color(0xFF93C5FD),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
                                 ),
-                                icon: const Icon(Icons.local_shipping_outlined, size: 16),
+                                icon: const Icon(
+                                  Icons.local_shipping_outlined,
+                                  size: 16,
+                                ),
                                 label: Text(
                                   context.t('Carrier', 'Nakliye'),
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 onPressed: () {
                                   _authService.switchDemoRole(UserRole.carrier);
                                   Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(builder: (_) => const MainShell()),
+                                    MaterialPageRoute(
+                                      builder: (_) => const MainShell(),
+                                    ),
                                   );
                                 },
                               ),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF059669),
-                                  side: const BorderSide(color: Color(0xFF6EE7B7)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  side: const BorderSide(
+                                    color: Color(0xFF6EE7B7),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
                                 ),
-                                icon: const Icon(Icons.person_outline, size: 16),
+                                icon: const Icon(
+                                  Icons.person_outline,
+                                  size: 16,
+                                ),
                                 label: Text(
                                   context.t('Citizen', 'Vatandaş'),
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 onPressed: () {
                                   _authService.switchDemoRole(UserRole.citizen);
                                   Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(builder: (_) => const MainShell()),
+                                    MaterialPageRoute(
+                                      builder: (_) => const MainShell(),
+                                    ),
                                   );
                                 },
                               ),
@@ -365,10 +438,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          context.t("Don't have an account? ", 'Henüz bir hesabınız yok mu? '),
+                          context.t(
+                            "Don't have an account? ",
+                            'Henüz bir hesabınız yok mu? ',
+                          ),
                           style: TextStyle(
                             fontSize: 14,
-                            color: AppColors.textSecondary,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                         GestureDetector(

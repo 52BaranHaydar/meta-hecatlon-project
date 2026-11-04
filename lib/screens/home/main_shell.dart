@@ -159,7 +159,7 @@ class _MainShellState extends State<MainShell> {
           appBar: AppBar(
             elevation: 0,
             scrolledUnderElevation: 1,
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             title: Row(
               children: [
                 Container(
@@ -220,7 +220,7 @@ class _MainShellState extends State<MainShell> {
           ),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
@@ -236,7 +236,7 @@ class _MainShellState extends State<MainShell> {
                   _currentIndex = index;
                 });
               },
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               indicatorColor: user.role.color.withValues(alpha: 0.14),
               height: 68,
               destinations: _destinationsFor(user.role),
