@@ -1,9 +1,9 @@
 # Afet Destek
 
-:tr Afet durumlarında ihtiyaç sahipleriyle destek sağlayanları buluşturmayı amaçlayan Flutter uygulaması.
-:eng A Flutter application designed to connect those in need with those providing support during disasters.
+🇹🇷 Afet durumlarında ihtiyaç sahipleriyle destek sağlayanları buluşturmayı amaçlayan Flutter uygulaması.
+🏴󠁧󠁢󠁥󠁮󠁧󠁿 A Flutter application designed to connect those in need with those providing support during disasters.
 
-## :tr Uygulamayı çalıştırma
+## 🇹🇷 Uygulamayı çalıştırma
 
 Yaya rotalarını kullanabilmek için OpenRouteService API anahtarınızı yapılandırın:
 
@@ -22,7 +22,7 @@ Terminal komutunu uygulamayı her yeniden başlattığınızda tekrar çalışt�
 
 `secret.json` gizli bilgiler içerir; bu dosyayı paylaşmayın veya Git'e eklemeyin. Flutter istemci uygulamasına eklenen API anahtarları yayımlanan uygulamalardan çıkarılabilir. Üretim ortamında anahtarı sunucu tarafında saklayın ve istekleri bir sunucu vekili üzerinden yönlendirin.
 
-## :eng Running the app
+## 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Running the app
 
 Configure your OpenRouteService API key to use walking directions:
 
