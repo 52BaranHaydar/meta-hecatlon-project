@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 class AppTheme {
+  static const _darkBackground = Color(0xFF0B1220);
+  static const _darkSurface = Color(0xFF111C2E);
+  static const _darkBorder = Color(0xFF273449);
+  static const _darkTextPrimary = Color(0xFFE2E8F0);
+  static const _darkTextSecondary = Color(0xFF94A3B8);
+
   static ThemeData get lightTheme {
     final baseTextTheme = ThemeData.light().textTheme;
 
@@ -72,10 +78,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          textStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -86,16 +89,16 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          textStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.border, width: 1.2),
@@ -110,13 +113,19 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.emergencyRed, width: 1.2),
+          borderSide: const BorderSide(
+            color: AppColors.emergencyRed,
+            width: 1.2,
+          ),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.emergencyRed, width: 2),
         ),
-        labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        labelStyle: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 14,
+        ),
         hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
         prefixIconColor: AppColors.textSecondary,
         suffixIconColor: AppColors.textSecondary,
@@ -129,6 +138,89 @@ class AppTheme {
           side: const BorderSide(color: AppColors.border, width: 1),
         ),
       ),
+    );
+  }
+
+  static ThemeData get darkTheme {
+    final baseTextTheme = ThemeData.dark().textTheme;
+
+    return lightTheme.copyWith(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: _darkBackground,
+      canvasColor: _darkBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: AppColors.accent,
+        secondary: AppColors.secondary,
+        surface: _darkSurface,
+        error: AppColors.emergencyRed,
+        onPrimary: _darkBackground,
+        onSecondary: Colors.white,
+        onSurface: _darkTextPrimary,
+      ),
+      textTheme: baseTextTheme.apply(
+        bodyColor: _darkTextPrimary,
+        displayColor: _darkTextPrimary,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: _darkSurface,
+        foregroundColor: _darkTextPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: _darkTextPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: _darkSurface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _darkBorder, width: 1.2),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _darkBorder, width: 1.2),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.accent, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.emergencyRed,
+            width: 1.2,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.emergencyRed, width: 2),
+        ),
+        labelStyle: const TextStyle(color: _darkTextSecondary, fontSize: 14),
+        hintStyle: const TextStyle(color: _darkTextSecondary, fontSize: 14),
+        prefixIconColor: _darkTextSecondary,
+        suffixIconColor: _darkTextSecondary,
+      ),
+      cardTheme: CardThemeData(
+        color: _darkSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: _darkBorder, width: 1),
+        ),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: _darkSurface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dividerColor: _darkBorder,
     );
   }
 }

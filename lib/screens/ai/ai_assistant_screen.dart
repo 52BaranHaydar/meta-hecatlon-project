@@ -105,10 +105,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         elevation: 0,
         title: Row(
           children: [
@@ -151,7 +153,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         children: [
           // Quick Scenario Bar
           Container(
-            color: Colors.white,
+            color: colorScheme.surface,
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -224,7 +226,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     ),
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: colorScheme.onSurfaceVariant,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -234,7 +236,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
           // Input Bar
           Container(
-            color: Colors.white,
+            color: colorScheme.surface,
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
             child: SafeArea(
               child: Row(
@@ -242,7 +244,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: TextField(
@@ -287,6 +289,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Widget _quickPromptChip(String label) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: ActionChip(
@@ -294,7 +298,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           label,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
         ),
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: colorScheme.surfaceContainerHighest,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         side: const BorderSide(color: AppColors.border),
         onPressed: () => _sendMessage(label),
@@ -303,6 +307,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Widget _buildMessageBubble(ChatMessage msg) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (msg.isUser) {
       return Align(
         alignment: Alignment.centerRight,
@@ -342,8 +348,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: msg.isEmergencyFallback
-              ? const Color(0xFFFEF2F2)
-              : Colors.white,
+              ? colorScheme.errorContainer
+              : colorScheme.surface,
           borderRadius: BorderRadius.circular(
             20,
           ).copyWith(topLeft: const Radius.circular(4)),
@@ -400,8 +406,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 fontSize: 14,
                 height: 1.45,
                 color: msg.isEmergencyFallback
-                    ? const Color(0xFF991B1B)
-                    : AppColors.textPrimary,
+                    ? colorScheme.onErrorContainer
+                    : colorScheme.onSurface,
                 fontWeight: msg.isEmergencyFallback
                     ? FontWeight.w700
                     : FontWeight.w500,
@@ -415,7 +421,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -430,10 +436,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     Flexible(
                       child: Text(
                         msg.source!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),

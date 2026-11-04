@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:afet_destek/main.dart';
+import 'package:afet_destek/constants/app_theme.dart';
 import 'package:afet_destek/models/user_model.dart';
 import 'package:afet_destek/screens/ai/ai_assistant_screen.dart';
 import 'package:afet_destek/screens/ai/ai_triage_screen.dart';
 import 'package:afet_destek/services/auth_service.dart';
 import 'package:afet_destek/services/language_service.dart';
+import 'package:afet_destek/services/theme_service.dart';
 import 'package:afet_destek/widgets/emergency_112_button.dart';
 
 void main() {
@@ -21,6 +23,44 @@ void main() {
     await tester.pumpWidget(const AfetDestekApp());
     expect(find.text('DISASTER RELIEF'), findsOneWidget);
     expect(find.text('Sign In'), findsWidgets);
+  });
+
+  testWidgets('theme toggle switches mode and saves the preference', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const AfetDestekApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dark mode'), findsOneWidget);
+    await tester.tap(find.text('Dark mode'));
+    await tester.pumpAndSettle();
+
+    expect(ThemeService.instance.themeMode, ThemeMode.dark);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.dark,
+    );
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,
+      AppTheme.darkTheme.scaffoldBackgroundColor,
+    );
+    expect(
+      find.byWidgetPredicate((widget) {
+        if (widget is! Container) return false;
+        final decoration = widget.decoration;
+        return decoration is BoxDecoration &&
+            decoration.color == AppTheme.darkTheme.colorScheme.surface;
+      }),
+      findsWidgets,
+    );
+    expect(find.text('Light mode'), findsOneWidget);
+    expect(
+      (await SharedPreferences.getInstance()).getBool('selected_theme_mode'),
+      isTrue,
+    );
+
+    await ThemeService.instance.toggleThemeMode();
+    await tester.pumpAndSettle();
   });
 
   testWidgets(

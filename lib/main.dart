@@ -7,6 +7,8 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/main_shell.dart';
 import 'services/auth_service.dart';
 import 'services/language_service.dart';
+import 'services/theme_service.dart';
+import 'widgets/theme_toggle_button.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,14 +34,32 @@ class AfetDestekApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = AuthService();
     final langService = LanguageService.instance;
+    final themeService = ThemeService.instance;
 
     return ListenableBuilder(
-      listenable: langService,
+      listenable: Listenable.merge([langService, themeService]),
       builder: (context, _) {
         return MaterialApp(
-          title: langService.isEnglish ? 'Disaster Relief - Meta AI' : 'Afet Destek - Meta AI',
+          title: langService.isEnglish
+              ? 'Disaster Relief - Meta AI'
+              : 'Afet Destek - Meta AI',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeService.themeMode,
+          builder: (context, child) {
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (child != null) child,
+                const Positioned(
+                  right: 16,
+                  bottom: 88,
+                  child: ThemeToggleButton(),
+                ),
+              ],
+            );
+          },
           home: ListenableBuilder(
             listenable: authService,
             builder: (context, _) {
