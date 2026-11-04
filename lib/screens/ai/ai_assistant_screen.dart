@@ -34,14 +34,24 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final CrisisDataService _crisisService = CrisisDataService();
   bool _isTyping = false;
 
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      text:
-          'Merhaba! Ben Meta Llama 3 tabanlı Afet ve İlk Yardım Asistanıyım. AFAD, Kızılay kılavuzları ve Kriz Masası canlı stok/alan veritabanına bağlıyım. Deprem anı, ilk yardım veya boş toplanma alanları hakkında bana dilediğiniz soruyu sorabilirsiniz.',
-      isUser: false,
-      source: 'AFAD & Kriz Masası Canlı Bilgi Tabanı',
-    ),
-  ];
+  final List<ChatMessage> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    final english = LanguageService.instance.isEnglish;
+    _messages.add(
+      ChatMessage(
+        text: english
+            ? 'Hello! I am the Meta Llama 3 Disaster and First Aid Assistant, connected to AFAD and Red Crescent guidance and the Crisis Center live supplies and shelter database. Ask me about earthquakes, first aid, or available assembly areas.'
+            : 'Merhaba! Ben Meta Llama 3 tabanlı Afet ve İlk Yardım Asistanıyım. AFAD, Kızılay kılavuzları ve Kriz Masası canlı stok/alan veritabanına bağlıyım. Deprem anı, ilk yardım veya boş toplanma alanları hakkında bana dilediğiniz soruyu sorabilirsiniz.',
+        isUser: false,
+        source: english
+            ? 'AFAD & Crisis Center Live Knowledge Base'
+            : 'AFAD & Kriz Masası Canlı Bilgi Tabanı',
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -61,7 +71,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _textController.clear();
     _scrollToBottom();
 
-    final replyData = await _crisisService.askLlamaAssistant(query);
+    final replyData = await _crisisService.askLlamaAssistant(
+      query,
+      english: LanguageService.instance.isEnglish,
+    );
     if (!mounted) return;
 
     final botReply = ChatMessage(
@@ -99,7 +112,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         elevation: 0,
         title: Row(
           children: [
-            const Icon(Icons.auto_awesome, color: AppColors.primaryBlue, size: 22),
+            const Icon(
+              Icons.auto_awesome,
+              color: AppColors.primaryBlue,
+              size: 22,
+            ),
             const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,8 +126,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
                 Text(
-                  'Meta API Aktif (${MetaAiConfig.maskedKey})',
-                  style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w700),
+                  context.t(
+                    'Meta API Active (${MetaAiConfig.maskedKey})',
+                    'Meta API Aktif (${MetaAiConfig.maskedKey})',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
@@ -133,11 +157,33 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _quickPromptChip('📊 Afet Durum Özeti & Kriz Raporu'),
-                  _quickPromptChip('⛺ Boş Toplanma Alanları & Stok'),
-                  _quickPromptChip('🩹 Kanamaya İlk Yardım'),
-                  _quickPromptChip('🏚️ Enkaz Altında Ne Yapmalı?'),
-                  _quickPromptChip('💧 Güvenli İçme Suyu'),
+                  _quickPromptChip(
+                    context.t(
+                      '📊 Disaster Status & Crisis Report',
+                      '📊 Afet Durum Özeti & Kriz Raporu',
+                    ),
+                  ),
+                  _quickPromptChip(
+                    context.t(
+                      '⛺ Available Assembly Areas & Supplies',
+                      '⛺ Boş Toplanma Alanları & Stok',
+                    ),
+                  ),
+                  _quickPromptChip(
+                    context.t(
+                      '🩹 First Aid for Bleeding',
+                      '🩹 Kanamaya İlk Yardım',
+                    ),
+                  ),
+                  _quickPromptChip(
+                    context.t(
+                      '🏚️ What to Do Under Rubble?',
+                      '🏚️ Enkaz Altında Ne Yapmalı?',
+                    ),
+                  ),
+                  _quickPromptChip(
+                    context.t('💧 Safe Drinking Water', '💧 Güvenli İçme Suyu'),
+                  ),
                 ],
               ),
             ),
@@ -161,7 +207,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Row(
-                children: const [
+                children: [
                   SizedBox(
                     width: 16,
                     height: 16,
@@ -172,7 +218,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   ),
                   SizedBox(width: 10),
                   Text(
-                    'Meta Llama 3 canlı verileri sorguluyor (RAG)...',
+                    context.t(
+                      'Meta Llama 3 is checking live data (RAG)...',
+                      'Meta Llama 3 canlı verileri sorguluyor (RAG)...',
+                    ),
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -200,7 +249,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         controller: _textController,
                         onSubmitted: _sendMessage,
                         decoration: InputDecoration(
-                          hintText: context.t('Ask about emergency procedures, first aid or supplies...', 'Bir acil durum veya stok sorusu sorun...'),
+                          hintText: context.t(
+                            'Ask about emergency procedures, first aid or supplies...',
+                            'Bir acil durum veya stok sorusu sorun...',
+                          ),
                           hintStyle: TextStyle(
                             fontSize: 13,
                             color: AppColors.textMuted,
@@ -259,9 +311,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: AppColors.primaryBlue,
-            borderRadius: BorderRadius.circular(18).copyWith(
-              bottomRight: const Radius.circular(4),
-            ),
+            borderRadius: BorderRadius.circular(
+              18,
+            ).copyWith(bottomRight: const Radius.circular(4)),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primaryBlue.withValues(alpha: 0.2),
@@ -292,9 +344,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           color: msg.isEmergencyFallback
               ? const Color(0xFFFEF2F2)
               : Colors.white,
-          borderRadius: BorderRadius.circular(20).copyWith(
-            topLeft: const Radius.circular(4),
-          ),
+          borderRadius: BorderRadius.circular(
+            20,
+          ).copyWith(topLeft: const Radius.circular(4)),
           border: Border.all(
             color: msg.isEmergencyFallback
                 ? AppColors.emergencyRed
@@ -326,7 +378,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 const SizedBox(width: 6),
                 Text(
                   msg.isEmergencyFallback
-                      ? '112 Acil Yönlendirmesi'
+                      ? context.t(
+                          '112 Emergency Guidance',
+                          '112 Acil Yönlendirmesi',
+                        )
                       : 'Meta Llama 3',
                   style: TextStyle(
                     fontSize: 12,

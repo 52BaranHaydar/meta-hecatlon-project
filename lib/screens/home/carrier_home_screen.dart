@@ -29,6 +29,70 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
 
   LogisticsService get _logisticsService => widget.logisticsService;
 
+  String _categoryLabel(String category) => switch (category) {
+    'Su' => context.t('Water', 'Su'),
+    'Çadır' => context.t('Tent', 'Çadır'),
+    'İlaç' => context.t('Medicine', 'İlaç'),
+    'Mama' => context.t('Infant formula', 'Mama'),
+    'Gıda' => context.t('Food', 'Gıda'),
+    'Battaniye' => context.t('Blanket', 'Battaniye'),
+    _ => category,
+  };
+
+  String _vehicleLabel(String vehicle) => switch (vehicle) {
+    'Tır' => context.t('Truck', 'Tır'),
+    'Kamyonet' => context.t('Van', 'Kamyonet'),
+    _ => vehicle,
+  };
+
+  String _unitLabel(String category) => switch (category) {
+    'Su' => context.t('bottles', 'Şişe'),
+    'Çadır' || 'Battaniye' => context.t('items', 'Adet'),
+    'İlaç' || 'Mama' => context.t('boxes', 'Kutu'),
+    'Gıda' => context.t('cartons', 'Koli'),
+    _ => context.t('units', 'Birim'),
+  };
+
+  String _destinationLabel(String destination) => switch (destination) {
+    'Atatürk Parkı Güvenli Toplanma Alanı' => context.t(
+      'Atatürk Park Safe Assembly Area',
+      destination,
+    ),
+    'Kamil Ocak 1 Nolu Çadır Kent' => context.t(
+      'Kamil Ocak Tent City No. 1',
+      destination,
+    ),
+    'Kızılay Aşevi ve Temel İhtiyaç Noktası' => context.t(
+      'Red Crescent Soup Kitchen and Essential Supplies Point',
+      destination,
+    ),
+    'Sahra Acil Müdahale ve İlk Yardım Merkezi' => context.t(
+      'Field Emergency Response and First Aid Center',
+      destination,
+    ),
+    'Masal Parkı 2. Toplanma Bölgesi' => context.t(
+      'Masal Park Assembly Area No. 2',
+      destination,
+    ),
+    _ => destination,
+  };
+
+  String _stockLabel(String areaName, String category) {
+    final label = _logisticsService.stockLabel(areaName, category);
+    if (!context.isEnglish) return label;
+    return label
+        .replaceAll('Şişe', 'bottles')
+        .replaceAll('Adet', 'items')
+        .replaceAll('Kutu', 'boxes')
+        .replaceAll('Koli', 'cartons')
+        .replaceAll('Boş', 'available')
+        .replaceAll('Günlük', 'daily')
+        .replaceAll('Porsiyon', 'portions')
+        .replaceAll('Bol', 'plenty')
+        .replaceAll('Mevcut', 'available')
+        .replaceAll('Depo', 'tank');
+  }
+
   @override
   void dispose() {
     _plateController.dispose();
@@ -68,7 +132,10 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                   onPressed: () => _showAddShipmentBottomSheet(context),
                   icon: const Icon(Icons.add_location_alt),
                   label: Text(
-                    context.t('ADD NEW CARGO & SHIPMENT', 'YENİ YÜK & SEVKİYAT EKLE'),
+                    context.t(
+                      'ADD NEW CARGO & SHIPMENT',
+                      'YENİ YÜK & SEVKİYAT EKLE',
+                    ),
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -79,10 +146,7 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
               if (_logisticsService.syncError case final error?)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    error,
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                  child: Text(error, style: const TextStyle(color: Colors.red)),
                 ),
               const SizedBox(height: 16),
               _buildUrgentNeedPoints(),
@@ -101,10 +165,16 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.auto_awesome, color: Colors.deepOrange),
+                          const Icon(
+                            Icons.auto_awesome,
+                            color: Colors.deepOrange,
+                          ),
                           const SizedBox(width: 8),
                           Text(
-                            context.t('Meta AI Recommended Route', 'Meta AI Önerilen Rota'),
+                            context.t(
+                              'Meta AI Recommended Route',
+                              'Meta AI Önerilen Rota',
+                            ),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -115,12 +185,18 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        context.t('Selected Cargo Type: $_selectedCategory', 'Seçili Yük Türü: $_selectedCategory'),
+                        context.t(
+                          'Selected Cargo Type: ${_categoryLabel(_selectedCategory)}',
+                          'Seçili Yük Türü: $_selectedCategory',
+                        ),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        context.t('Highest Need Location: $aiRecommendedDestination', 'İhtiyacı En Yüksek Alan: $aiRecommendedDestination'),
+                        context.t(
+                          'Highest Need Location: ${_destinationLabel(aiRecommendedDestination)}',
+                          'İhtiyacı En Yüksek Alan: $aiRecommendedDestination',
+                        ),
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -128,8 +204,11 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                         ),
                       ),
                       Text(
-                        'Stok kritik: $_selectedCategory ihtiyacı en yüksek '
-                        '$aiRecommendedDestination noktasına gitmeniz önerilir.',
+                        context.t(
+                          'Stock is critical: deliver ${_categoryLabel(_selectedCategory)} to ${_destinationLabel(aiRecommendedDestination)}, the location with the highest need.',
+                          'Stok kritik: $_selectedCategory ihtiyacı en yüksek '
+                              '$aiRecommendedDestination noktasına gitmeniz önerilir.',
+                        ),
                         style: TextStyle(
                           color: Colors.deepOrange.shade900,
                           fontWeight: FontWeight.w600,
@@ -137,7 +216,7 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${context.t("Current \$_selectedCategory stock: ", "Mevcut \$_selectedCategory stoku: ")}\${_logisticsService.stockLabel(aiRecommendedDestination, _selectedCategory)}',
+                        '${context.t("Current ${_categoryLabel(_selectedCategory)} stock: ", "Mevcut $_selectedCategory stoku: ")}${_stockLabel(aiRecommendedDestination, _selectedCategory)}',
                         style: const TextStyle(fontSize: 13),
                       ),
                       if (widget.onNavigateToMap != null)
@@ -151,7 +230,12 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                             }
                           },
                           icon: const Icon(Icons.map_outlined),
-                          label: Text(context.t('Open Destination on Map', 'Hedefi Haritada Aç')),
+                          label: Text(
+                            context.t(
+                              'Open Destination on Map',
+                              'Hedefi Haritada Aç',
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -160,7 +244,7 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
               const SizedBox(height: 20),
 
               Text(
-                context.t('Your Active Shipments', 'Mevcut Taşımalarınız (Shipments)'),
+                context.t('Your Active Shipments', 'Mevcut Taşımalarınız'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
@@ -169,7 +253,12 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(32.0),
-                        child: Text(context.t('No active shipment record yet.', 'Henüz aktif bir sevkiyat kaydı yok.')),
+                        child: Text(
+                          context.t(
+                            'No active shipment record yet.',
+                            'Henüz aktif bir sevkiyat kaydı yok.',
+                          ),
+                        ),
                       ),
                     )
                   : ListView.builder(
@@ -206,11 +295,19 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    context.t('Active Cargo in Vehicles', 'Araçlarımdaki Aktif Yük'),
+                    context.t(
+                      'Active Cargo in Vehicles',
+                      'Araçlarımdaki Aktif Yük',
+                    ),
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
-                  Text(context.t('$shipmentCount shipments · $quantity cargo units', '$shipmentCount sevkiyat · $quantity birim yük')),
+                  Text(
+                    context.t(
+                      '$shipmentCount shipments · $quantity cargo units',
+                      '$shipmentCount sevkiyat · $quantity birim yük',
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -244,8 +341,13 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                 Icons.priority_high_rounded,
                 color: Colors.deepOrange,
               ),
-              title: Text(point.key),
-              subtitle: Text('Mevcut $_selectedCategory stoku: ${point.value}'),
+              title: Text(_destinationLabel(point.key)),
+              subtitle: Text(
+                context.t(
+                  'Current ${_categoryLabel(_selectedCategory)} stock: ${_stockLabel(point.key, _selectedCategory)}',
+                  'Mevcut $_selectedCategory stoku: ${point.value}',
+                ),
+              ),
               trailing: const Icon(Icons.map_outlined),
               onTap: widget.onNavigateToMap == null || areaMatches.isEmpty
                   ? null
@@ -270,7 +372,7 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${shipment.vehicleType} - ${shipment.plateNumber}',
+                  '${_vehicleLabel(shipment.vehicleType)} - ${shipment.plateNumber}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -281,12 +383,22 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
             ),
             const Divider(),
             Text(
-              'Yük: ${shipment.quantity} '
-              '${ShipmentModel.unitFor(shipment.category)} ${shipment.category}',
+              context.t(
+                'Cargo: ${shipment.quantity} ${_unitLabel(shipment.category)} ${_categoryLabel(shipment.category)}',
+                'Yük: ${shipment.quantity} ${ShipmentModel.unitFor(shipment.category)} ${shipment.category}',
+              ),
             ),
-            Text('Hedef: ${shipment.destination}'),
             Text(
-              'Hedef stok: ${_logisticsService.stockLabel(shipment.destination, shipment.category)}',
+              context.t(
+                'Destination: ${_destinationLabel(shipment.destination)}',
+                'Hedef: ${shipment.destination}',
+              ),
+            ),
+            Text(
+              context.t(
+                'Destination stock: ${_stockLabel(shipment.destination, shipment.category)}',
+                'Hedef stok: ${_logisticsService.stockLabel(shipment.destination, shipment.category)}',
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -332,7 +444,12 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                           )
                         : null,
                     icon: const Icon(Icons.place_outlined),
-                    label: Text(context.t('2. At Disaster Zone', '2. Afet Bölgesi Girişinde')),
+                    label: Text(
+                      context.t(
+                        '2. At Disaster Zone',
+                        '2. Afet Bölgesi Girişinde',
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -355,7 +472,12 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                           )
                         : null,
                     icon: const Icon(Icons.location_on_outlined),
-                    label: Text(context.t('3. Arrived at Destination', '3. Dağıtım Noktasına Ulaştım')),
+                    label: Text(
+                      context.t(
+                        '3. Arrived at Destination',
+                        '3. Dağıtım Noktasına Ulaştım',
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -397,7 +519,14 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sevkiyat durumu güncellenemedi: $error')),
+        SnackBar(
+          content: Text(
+            context.t(
+              'Could not update shipment status: $error',
+              'Sevkiyat durumu güncellenemedi: $error',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -407,23 +536,29 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
     Color color;
     switch (status) {
       case ShipmentStatus.yolaCikti:
-        label = 'Yola Çıktı';
+        label = context.t('Departed', 'Yola Çıktı');
         color = Colors.orange;
         break;
       case ShipmentStatus.afetBolgesiGirisinde:
-        label = 'Afet Bölgesi Girişinde';
+        label = context.t('At Disaster Zone', 'Afet Bölgesi Girişinde');
         color = Colors.deepOrange;
         break;
       case ShipmentStatus.hazir:
-        label = 'Sevkiyat Hazır';
+        label = context.t('Shipment Ready', 'Sevkiyat Hazır');
         color = Colors.blueGrey;
         break;
       case ShipmentStatus.dagitimNoktasinaUlasti:
-        label = 'Dağıtım Noktasına Ulaştı';
+        label = context.t(
+          'Arrived at Distribution Point',
+          'Dağıtım Noktasına Ulaştı',
+        );
         color = Colors.teal;
         break;
       case ShipmentStatus.teslimEdildi:
-        label = context.t('Delivered (+Stock Updated)', 'Teslim Edildi (+Stok Artırıldı)');
+        label = context.t(
+          'Delivered (+Stock Updated)',
+          'Teslim Edildi (+Stok Artırıldı)',
+        );
         color = Colors.green;
         break;
     }
@@ -459,16 +594,19 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Yeni Sevkiyat Kaydı',
+                  Text(
+                    context.t('New Shipment', 'Yeni Sevkiyat Kaydı'),
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _plateController,
                     textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'Plaka (Örn: 34 ABC 123)',
+                    decoration: InputDecoration(
+                      labelText: context.t(
+                        'License Plate (e.g. 34 ABC 123)',
+                        'Plaka (Örn: 34 ABC 123)',
+                      ),
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -482,7 +620,7 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                               .map(
                                 (vehicle) => DropdownMenuItem(
                                   value: vehicle,
-                                  child: Text(vehicle),
+                                  child: Text(_vehicleLabel(vehicle)),
                                 ),
                               )
                               .toList(),
@@ -491,8 +629,8 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                             setModalState(() => selectedVehicle = value);
                             setState(() => _selectedVehicle = value);
                           },
-                          decoration: const InputDecoration(
-                            labelText: 'Araç Tipi',
+                          decoration: InputDecoration(
+                            labelText: context.t('Vehicle Type', 'Araç Tipi'),
                           ),
                         ),
                       ),
@@ -504,7 +642,7 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                               .map(
                                 (category) => DropdownMenuItem(
                                   value: category,
-                                  child: Text(category),
+                                  child: Text(_categoryLabel(category)),
                                 ),
                               )
                               .toList(),
@@ -548,9 +686,12 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                             quantity == null ||
                             quantity <= 0) {
                           ScaffoldMessenger.of(this.context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Plaka ve pozitif bir miktar girin.',
+                                context.t(
+                                  'Enter a license plate and a positive quantity.',
+                                  'Plaka ve pozitif bir miktar girin.',
+                                ),
                               ),
                             ),
                           );
@@ -575,7 +716,12 @@ class _CarrierHomeScreenState extends State<CarrierHomeScreen> {
                           if (!mounted || !context.mounted) return;
                           messenger.showSnackBar(
                             SnackBar(
-                              content: Text('Sevkiyat kaydedilemedi: $error'),
+                              content: Text(
+                                context.t(
+                                  'Could not save shipment: $error',
+                                  'Sevkiyat kaydedilemedi: $error',
+                                ),
+                              ),
                             ),
                           );
                           return;

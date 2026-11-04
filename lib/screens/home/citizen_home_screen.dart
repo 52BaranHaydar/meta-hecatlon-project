@@ -79,7 +79,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _safetyCircleError = 'Güvenlik çemberi yüklenemedi: $error';
+        _safetyCircleError = context.t(
+          'Could not load your safety circle: $error',
+          'Güvenlik çemberi yüklenemedi: $error',
+        );
         _isLoadingSafetyCircle = false;
       });
     }
@@ -104,15 +107,24 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     try {
       location = await LocationService.getCurrentLocation();
     } on LocationServiceException catch (error) {
-      locationError = error.message;
+      locationError = LanguageService.instance.text(
+        'Could not get GPS location: ${error.message}',
+        'GPS konumu alınamadı: ${error.message}',
+      );
     } catch (error) {
-      locationError = 'GPS konumu alınamadı: $error';
+      locationError = LanguageService.instance.text(
+        'Could not get GPS location: $error',
+        'GPS konumu alınamadı: $error',
+      );
     }
 
     try {
       batteryPercent = await Battery().batteryLevel;
     } catch (error) {
-      batteryError = 'Pil seviyesi alınamadı: $error';
+      batteryError = LanguageService.instance.text(
+        'Could not read battery level: $error',
+        'Pil seviyesi alınamadı: $error',
+      );
     }
 
     ReliefAreaModel? nearestArea;
@@ -146,7 +158,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       if (!mounted) return;
       setState(() {
         _isReportingSafe = false;
-        _safetyCircleError = 'Güvende bildirimi kaydedilemedi: $error';
+        _safetyCircleError = LanguageService.instance.text(
+          'Could not save your safe-status report: $error',
+          'Güvende bildirimi kaydedilemedi: $error',
+        );
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -167,14 +182,25 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
           report: report,
         );
         liveStatusMessage = recipientCount == 0
-            ? 'Henüz daveti kabul eden yakın yok; canlı durum paylaşılmadı.'
-            : 'Güvenlik durumunuz $recipientCount yakınla paylaşıldı.';
+            ? LanguageService.instance.text(
+                'No contacts have accepted your invitation yet; your live status was not shared.',
+                'Henüz daveti kabul eden yakın yok; canlı durum paylaşılmadı.',
+              )
+            : LanguageService.instance.text(
+                'Your safety status was shared with $recipientCount contact(s).',
+                'Güvenlik durumunuz $recipientCount yakınla paylaşıldı.',
+              );
       } catch (error) {
-        liveStatusMessage = 'Canlı paylaşım başarısız: $error';
+        liveStatusMessage = LanguageService.instance.text(
+          'Live sharing failed: $error',
+          'Canlı paylaşım başarısız: $error',
+        );
       }
     } else {
-      liveStatusMessage =
-          'Bu oturumda bildirim yalnızca bu cihazda saklanıyor; yakınlarınıza canlı iletilmedi.';
+      liveStatusMessage = LanguageService.instance.text(
+        'This report is saved on this device only and was not shared live with your contacts.',
+        'Bu oturumda bildirim yalnızca bu cihazda saklanıyor; yakınlarınıza canlı iletilmedi.',
+      );
     }
 
     if (!mounted) return;
@@ -188,17 +214,32 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
 
     final details = <String>[
       location == null
-          ? locationError ?? 'GPS konumu alınamadı.'
-          : 'Konum ve saat kaydedildi.',
+          ? locationError ??
+                LanguageService.instance.text(
+                  'GPS location unavailable.',
+                  'GPS konumu alınamadı.',
+                )
+          : LanguageService.instance.text(
+              'Location and time recorded.',
+              'Konum ve saat kaydedildi.',
+            ),
       if (batteryPercent != null)
-        'Pil: %$batteryPercent.'
+        LanguageService.instance.text(
+          'Battery: $batteryPercent%.',
+          'Pil: %$batteryPercent.',
+        )
       else if (batteryError != null)
         batteryError,
       liveStatusMessage,
     ];
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Güvende bildirimi kaydedildi. ${details.join(' ')}'),
+        content: Text(
+          LanguageService.instance.text(
+            'Safe-status report saved. ${details.join(' ')}',
+            'Güvende bildirimi kaydedildi. ${details.join(' ')}',
+          ),
+        ),
         backgroundColor: locationError != null || batteryError != null
             ? AppColors.warning
             : AppColors.success,
@@ -221,7 +262,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       if (!mounted) return;
       setState(() {
         _bloodGroup = oldBloodGroup;
-        _safetyCircleError = 'Kan grubu kaydedilemedi: $error';
+        _safetyCircleError = context.t(
+          'Could not save blood type: $error',
+          'Kan grubu kaydedilemedi: $error',
+        );
       });
     }
   }
@@ -230,21 +274,32 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     final shouldPrepare = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Yakınlarınıza SMS hazırlansın mı?'),
+        title: Text(
+          context.t(
+            'Prepare SMS messages for your contacts?',
+            'Yakınlarınıza SMS hazırlansın mı?',
+          ),
+        ),
         content: Text(
-          '${_safetyContacts.length} yakının her biri için ayrı bir mesaj taslağı açılacak. '
-          'Mesaj uygulamasında Gönder’e sizin basmanız gerekir. '
-          'Mesajda adınız, kan grubunuz, GPS koordinatları ve Google Maps bağlantısı bulunur. '
-          'Mesajları sırayla göndermek için uygulamaya dönün.',
+          context.t(
+            'A separate message draft will open for each of your ${_safetyContacts.length} contact(s). '
+                'You must tap Send in your messaging app. '
+                'The message includes your name, blood type, GPS coordinates, and a Google Maps link. '
+                'Return to the app to send the messages one by one.',
+            '${_safetyContacts.length} yakının her biri için ayrı bir mesaj taslağı açılacak. '
+                'Mesaj uygulamasında Gönder’e sizin basmanız gerekir. '
+                'Mesajda adınız, kan grubunuz, GPS koordinatları ve Google Maps bağlantısı bulunur. '
+                'Mesajları sırayla göndermek için uygulamaya dönün.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Şimdi değil'),
+            child: Text(context.t('Not now', 'Şimdi değil')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('SMS taslağını aç'),
+            child: Text(context.t('Open SMS drafts', 'SMS taslağını aç')),
           ),
         ],
       ),
@@ -263,16 +318,19 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     if (_isPreparingSms || _nextSmsIndex >= _smsQueue.length) return;
     final safetyReport = report ?? _latestSafetyReport;
     if (safetyReport == null) {
-      setState(() => _smsError = 'Önce “Güvendeyim” bildirimi oluşturun.');
+      setState(
+        () => _smsError = context.t(
+          'Submit an “I am safe” report first.',
+          'Önce “Güvendeyim” bildirimi oluşturun.',
+        ),
+      );
       return;
     }
 
     await _sendNextSafetySmsDraft(safetyReport);
   }
 
-  Future<void> _queueEmergencySms({
-    String reportText = 'Yardım istiyorum. Acil destek gerekiyor.',
-  }) async {
+  Future<void> _queueEmergencySms({String? reportText}) async {
     if (_isQueueingEmergencySms) return;
     setState(() => _isQueueingEmergencySms = true);
     SafetyStatusReport? report;
@@ -286,10 +344,16 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       );
     } on LocationServiceException catch (error) {
       report = SafetyStatusReport(reportedAt: DateTime.now());
-      locationError = error.message;
+      locationError = LanguageService.instance.text(
+        'Could not get GPS location: ${error.message}',
+        'GPS konumu alınamadı: ${error.message}',
+      );
     } catch (error) {
       report = SafetyStatusReport(reportedAt: DateTime.now());
-      locationError = 'GPS konumu alınamadı: $error';
+      locationError = LanguageService.instance.text(
+        'Could not get GPS location: $error',
+        'GPS konumu alınamadı: $error',
+      );
     }
 
     try {
@@ -297,9 +361,15 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         userId: widget.user.uid,
         message: SafetySmsService.composeEmergencyMessage(
           citizenName: widget.user.name,
-          reportText: reportText,
+          reportText:
+              reportText ??
+              LanguageService.instance.text(
+                'I need help. Emergency assistance is required.',
+                'Yardım istiyorum. Acil destek gerekiyor.',
+              ),
           location: locationError ?? '',
           report: report,
+          english: LanguageService.instance.isEnglish,
         ),
       );
       if (!mounted) return;
@@ -309,9 +379,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         _smsError = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Acil SMS taslağı bu cihaza kaydedildi. Henüz gönderilmedi; resmî hedef numara ayarlı değil.',
+            LanguageService.instance.text(
+              'Emergency SMS draft saved on this device. It has not been sent; no official destination number is configured.',
+              'Acil SMS taslağı bu cihaza kaydedildi. Henüz gönderilmedi; resmî hedef numara ayarlı değil.',
+            ),
           ),
           backgroundColor: AppColors.warning,
           duration: Duration(seconds: 6),
@@ -321,7 +394,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       if (!mounted) return;
       setState(() {
         _isQueueingEmergencySms = false;
-        _smsError = 'Acil SMS kuyruğa eklenemedi: $error';
+        _smsError = LanguageService.instance.text(
+          'Could not queue emergency SMS: $error',
+          'Acil SMS kuyruğa eklenemedi: $error',
+        );
       });
     }
   }
@@ -338,9 +414,9 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const ListTile(
+              ListTile(
                 title: Text(
-                  'SMS alıcısı seçin',
+                  context.t('Choose an SMS recipient', 'SMS alıcısı seçin'),
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -354,7 +430,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.edit_rounded),
-                title: const Text('Alıcıyı SMS uygulamasında seç'),
+                title: Text(
+                  context.t(
+                    'Choose recipient in messaging app',
+                    'Alıcıyı SMS uygulamasında seç',
+                  ),
+                ),
                 onTap: () => Navigator.of(sheetContext).pop(),
               ),
             ],
@@ -373,19 +454,32 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             );
       if (!mounted) return;
       if (!launched) {
-        setState(() => _smsError = 'SMS uygulaması açılamadı.');
+        setState(
+          () => _smsError = context.t(
+            'Could not open messaging app.',
+            'SMS uygulaması açılamadı.',
+          ),
+        );
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'SMS uygulaması açıldı. Mesaj, siz Gönder’e basana kadar gönderilmez.',
+            context.t(
+              'Messaging app opened. The message will not be sent until you tap Send.',
+              'SMS uygulaması açıldı. Mesaj, siz Gönder’e basana kadar gönderilmez.',
+            ),
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _smsError = 'SMS taslağı açılamadı: $error');
+      setState(
+        () => _smsError = context.t(
+          'Could not open SMS draft: $error',
+          'SMS taslağı açılamadı: $error',
+        ),
+      );
     }
   }
 
@@ -403,7 +497,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _smsError = 'SMS kuyruğu güncellenemedi: $error');
+      setState(
+        () => _smsError = context.t(
+          'Could not update SMS queue: $error',
+          'SMS kuyruğu güncellenemedi: $error',
+        ),
+      );
     }
   }
 
@@ -431,6 +530,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
           message: SafetySmsService.composeInviteMessage(
             inviterName: widget.user.name,
             inviteCode: code,
+            english: context.isEnglish,
           ),
         );
       } catch (error) {
@@ -440,15 +540,26 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Güvenlik ağı daveti oluşturuldu'),
+          title: Text(
+            context.t(
+              'Safety circle invitation created',
+              'Güvenlik ağı daveti oluşturuldu',
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 smsDraftOpened
-                    ? 'SMS taslağı açıldı. Yakınınızın daveti kabul etmesi için kodu mesaj uygulamasında kendiniz gönderin.'
-                    : 'Bu cihazda SMS uygulaması açılamadı. Kodu yakınınıza başka bir yolla iletin.${smsDraftError == null ? '' : '\n\nAyrıntı: $smsDraftError'}',
+                    ? context.t(
+                        'SMS draft opened. Send the code yourself in your messaging app so your contact can accept the invitation.',
+                        'SMS taslağı açıldı. Yakınınızın daveti kabul etmesi için kodu mesaj uygulamasında kendiniz gönderin.',
+                      )
+                    : context.t(
+                        'Could not open the messaging app on this device. Share the code with your contact another way.${smsDraftError == null ? '' : '\n\nDetails: $smsDraftError'}',
+                        'Bu cihazda SMS uygulaması açılamadı. Kodu yakınınıza başka bir yolla iletin.${smsDraftError == null ? '' : '\n\nAyrıntı: $smsDraftError'}',
+                      ),
               ),
               const SizedBox(height: 12),
               SelectableText(
@@ -467,22 +578,34 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                 if (!mounted || !dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Davet kodu kopyalandı.')),
+                  SnackBar(
+                    content: Text(
+                      context.t(
+                        'Invitation code copied.',
+                        'Davet kodu kopyalandı.',
+                      ),
+                    ),
+                  ),
                 );
               },
               icon: const Icon(Icons.copy_rounded),
-              label: const Text('Kodu kopyala'),
+              label: Text(context.t('Copy code', 'Kodu kopyala')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Tamam'),
+              child: Text(context.t('Done', 'Tamam')),
             ),
           ],
         ),
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _safetyCircleError = 'Davet oluşturulamadı: $error');
+      setState(
+        () => _safetyCircleError = context.t(
+          'Could not create invitation: $error',
+          'Davet oluşturulamadı: $error',
+        ),
+      );
     }
   }
 
@@ -491,23 +614,31 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     final inviteCode = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Güvenlik ağı davetini kabul et'),
+        title: Text(
+          context.t(
+            'Accept safety circle invitation',
+            'Güvenlik ağı davetini kabul et',
+          ),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '32 karakterli davet kodu',
+          decoration: InputDecoration(
+            labelText: context.t(
+              '32-character invitation code',
+              '32 karakterli davet kodu',
+            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Vazgeç'),
+            child: Text(context.t('Cancel', 'Vazgeç')),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: const Text('Kabul Et'),
+            child: Text(context.t('Accept', 'Kabul Et')),
           ),
         ],
       ),
@@ -520,7 +651,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       if (_safetyContacts.length >= SafetyCircleService.maxContacts &&
           !_safetyContacts.any((contact) => contact.id == normalizedCode)) {
         throw StateError(
-          'En fazla ${SafetyCircleService.maxContacts} yakın eklenebilir.',
+          context.t(
+            'You can add up to ${SafetyCircleService.maxContacts} contacts.',
+            'En fazla ${SafetyCircleService.maxContacts} yakın eklenebilir.',
+          ),
         );
       }
       final inviterName = await _safetyCircleService.acceptInvite(
@@ -545,15 +679,23 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         _safetyCircleError = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Davet kabul edildi; karşılıklı güvenlik paylaşımı açıldı.',
+            context.t(
+              'Invitation accepted; mutual safety sharing is now enabled.',
+              'Davet kabul edildi; karşılıklı güvenlik paylaşımı açıldı.',
+            ),
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _safetyCircleError = 'Davet kabul edilemedi: $error');
+      setState(
+        () => _safetyCircleError = context.t(
+          'Could not accept invitation: $error',
+          'Davet kabul edilemedi: $error',
+        ),
+      );
     }
   }
 
@@ -570,14 +712,17 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
           citizenName: widget.user.name,
           bloodGroup: _bloodGroup,
           report: safetyReport,
+          english: context.isEnglish,
         ),
       );
       if (!mounted) return;
       if (!launched) {
         setState(() {
           _isPreparingSms = false;
-          _smsError =
-              '${contact.name} için SMS uygulaması açılamadı. Telefonunuzda SMS uygulaması olduğundan emin olun.';
+          _smsError = context.t(
+            'Could not open the messaging app for ${contact.name}. Make sure an SMS app is installed on your phone.',
+            '${contact.name} için SMS uygulaması açılamadı. Telefonunuzda SMS uygulaması olduğundan emin olun.',
+          );
         });
         return;
       }
@@ -589,7 +734,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${contact.name} için SMS taslağı açıldı. Mesajı gerçekten göndermek için SMS uygulamasında Gönder’e basın.',
+            context.t(
+              'SMS draft opened for ${contact.name}. Tap Send in your messaging app to actually send it.',
+              '${contact.name} için SMS taslağı açıldı. Mesajı gerçekten göndermek için SMS uygulamasında Gönder’e basın.',
+            ),
           ),
           backgroundColor: AppColors.primaryBlue,
           duration: const Duration(seconds: 6),
@@ -599,7 +747,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       if (!mounted) return;
       setState(() {
         _isPreparingSms = false;
-        _smsError = 'SMS taslağı açılamadı: $error';
+        _smsError = context.t(
+          'Could not open SMS draft: $error',
+          'SMS taslağı açılamadı: $error',
+        );
       });
     }
   }
@@ -618,7 +769,14 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       (saved) => saved.phone.replaceAll(RegExp(r'\D'), '') == normalizedPhone,
     )) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu telefon numarası zaten ekli.')),
+        SnackBar(
+          content: Text(
+            context.t(
+              'This phone number is already added.',
+              'Bu telefon numarası zaten ekli.',
+            ),
+          ),
+        ),
       );
       return;
     }
@@ -637,7 +795,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       if (!mounted) return;
       setState(() {
         _isSavingContacts = false;
-        _safetyCircleError = 'Yakın eklenemedi: $error';
+        _safetyCircleError = context.t(
+          'Could not add contact: $error',
+          'Yakın eklenemedi: $error',
+        );
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -671,7 +832,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       if (!mounted) return;
       setState(() {
         _isSavingContacts = false;
-        _safetyCircleError = 'Yakın silinemedi: $error';
+        _safetyCircleError = context.t(
+          'Could not remove contact: $error',
+          'Yakın silinemedi: $error',
+        );
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -680,6 +844,90 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         ),
       );
     }
+  }
+
+  String _areaCategoryTitle(AreaCategory category) => switch (category) {
+    AreaCategory.assemblyArea => context.t('Assembly Area', 'Toplanma Alanı'),
+    AreaCategory.tentCity => context.t('Tent City', 'Çadır Kent'),
+    AreaCategory.hospital => context.t(
+      'Field Hospital / First Aid',
+      'Sahra Hastanesi / İlk Yardım',
+    ),
+    AreaCategory.aidStation => context.t(
+      'Soup Kitchen & Water Distribution',
+      'Aşevi & Su Dağıtım',
+    ),
+  };
+
+  String _areaName(String name) => switch (name) {
+    'Atatürk Parkı Güvenli Toplanma Alanı' => context.t(
+      'Atatürk Park Safe Assembly Area',
+      name,
+    ),
+    'Kamil Ocak 1 Nolu Çadır Kent' => context.t(
+      'Kamil Ocak Tent City No. 1',
+      name,
+    ),
+    'Kızılay Aşevi ve Temel İhtiyaç Noktası' => context.t(
+      'Red Crescent Soup Kitchen and Essential Supplies Point',
+      name,
+    ),
+    'Sahra Acil Müdahale ve İlk Yardım Merkezi' => context.t(
+      'Field Emergency Response and First Aid Center',
+      name,
+    ),
+    'Masal Parkı 2. Toplanma Bölgesi' => context.t(
+      'Masal Park Assembly Area No. 2',
+      name,
+    ),
+    _ => name,
+  };
+
+  String _areaAddress(String address) => switch (address) {
+    'Şehitkamil, Osmangazi Mah. Park İçi' => context.t(
+      'Şehitkamil, Osmangazi Neighborhood, inside the park',
+      address,
+    ),
+    'Kamil Ocak Spor Kompleksi Çevresi' => context.t(
+      'Around Kamil Ocak Sports Complex',
+      address,
+    ),
+    'Mithatpaşa Meydanı Dağıtım Merkezi' => context.t(
+      'Mithatpaşa Square Distribution Center',
+      address,
+    ),
+    'İstasyon Caddesi Sağlık Çadırı' => context.t(
+      'Health tent on İstasyon Street',
+      address,
+    ),
+    'Sarıgüllük Mah. Masal Parkı İçi' => context.t(
+      'Sarıgüllük Neighborhood, inside Masal Park',
+      address,
+    ),
+    _ => address,
+  };
+
+  String _timeAgo(DateTime reportedAt) {
+    final elapsed = DateTime.now().difference(reportedAt);
+    if (elapsed.inMinutes < 1) {
+      return context.t('Just now', 'Az önce');
+    }
+    if (elapsed.inHours < 1) {
+      return context.t(
+        '${elapsed.inMinutes} min ago',
+        '${elapsed.inMinutes} dk önce',
+      );
+    }
+    if (elapsed.inDays < 1) {
+      return context.t(
+        '${elapsed.inHours} hr ago',
+        '${elapsed.inHours} sa önce',
+      );
+    }
+    return context.t(
+      '${elapsed.inDays} days ago',
+      '${elapsed.inDays} gün önce',
+    );
   }
 
   @override
@@ -715,7 +963,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Merhaba, ${widget.user.name}',
+                        context.t(
+                          'Hello, ${widget.user.name}',
+                          'Merhaba, ${widget.user.name}',
+                        ),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -732,8 +983,8 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
-                        'Vatandaş Portalı',
+                      child: Text(
+                        context.t('Citizen Portal', 'Vatandaş Portalı'),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -744,8 +995,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Güvende misiniz? Yardıma ihtiyacınız olduğunda butona basarak AI destekli afet merkezine bildirimde bulunabilirsiniz.',
+                Text(
+                  context.t(
+                    'Are you safe? If you need help, tap the button to notify the AI-assisted disaster response center.',
+                    'Güvende misiniz? Yardıma ihtiyacınız olduğunda butona basarak AI destekli afet merkezine bildirimde bulunabilirsiniz.',
+                  ),
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
@@ -773,8 +1027,8 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                           Icons.sos_rounded,
                           color: AppColors.emergencyRed,
                         ),
-                        label: const Text(
-                          'YARDIM İSTE',
+                        label: Text(
+                          context.t('REQUEST HELP', 'YARDIM İSTE'),
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -863,9 +1117,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
-                          'Nereye Gitmeli? (Harita & Rota)',
+                          context.t(
+                            'Where to Go? (Map & Route)',
+                            'Nereye Gitmeli? (Harita & Rota)',
+                          ),
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 15,
@@ -874,7 +1131,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Canlı haritada toplanma alanlarını ve yol tariflerini görün.',
+                          context.t(
+                            'View assembly areas and directions on the live map.',
+                            'Canlı haritada toplanma alanlarını ve yol tariflerini görün.',
+                          ),
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
@@ -970,9 +1230,9 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                   color: AppColors.primaryBlue,
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Ailem Güvende mi?',
+                    context.t('Is My Family Safe?', 'Ailem Güvende mi?'),
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -986,8 +1246,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Yakın ekleyip güvenlik ağı daveti gönderin. Durumlar yalnızca gerçek Firebase hesabı bulunan ve daveti kabul eden kişilerle paylaşılır. 30 dakikadan eski bildirimler “Ulaşılamıyor” görünür.',
+            Text(
+              context.t(
+                'Add contacts and invite them to your safety circle. Status is shared only with people who have a real Firebase account and accepted your invitation. Reports older than 30 minutes appear as “Unreachable.”',
+                'Yakın ekleyip güvenlik ağı daveti gönderin. Durumlar yalnızca gerçek Firebase hesabı bulunan ve daveti kabul eden kişilerle paylaşılır. 30 dakikadan eski bildirimler “Ulaşılamıyor” görünür.',
+              ),
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -998,12 +1261,15 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             DropdownButtonFormField<String>(
               key: ValueKey(_bloodGroup),
               initialValue: _bloodGroup,
-              decoration: const InputDecoration(
-                labelText: 'Kan grubunuz (SMS’te paylaşılır)',
+              decoration: InputDecoration(
+                labelText: context.t(
+                  'Your blood type (shared in SMS)',
+                  'Kan grubunuz (SMS’te paylaşılır)',
+                ),
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              hint: const Text('Kan grubu seçin'),
+              hint: Text(context.t('Select blood type', 'Kan grubu seçin')),
               items: SafetyCircleService.bloodGroups
                   .map(
                     (bloodGroup) => DropdownMenuItem(
@@ -1054,11 +1320,20 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                         children: [
                           Text(
                             report == null
-                                ? 'Henüz “Güvendeyim” bildirimi yok.'
+                                ? context.t(
+                                    'No “I am safe” report yet.',
+                                    'Henüz “Güvendeyim” bildirimi yok.',
+                                  )
                                 : report.latitude == null ||
                                       report.longitude == null
-                                ? '[GÜVENDE] GPS konumu alınamadı • ${report.timeAgo}'
-                                : '[GÜVENDE] Konum alındı • en yakın: ${report.placeName ?? 'Toplanma alanı bulunamadı'} • ${report.timeAgo}',
+                                ? context.t(
+                                    '[SAFE] GPS location unavailable • ${_timeAgo(report.reportedAt)}',
+                                    '[GÜVENDE] GPS konumu alınamadı • ${_timeAgo(report.reportedAt)}',
+                                  )
+                                : context.t(
+                                    '[SAFE] Location received • nearest: ${_areaName(report.placeName ?? 'Toplanma alanı bulunamadı')} • ${_timeAgo(report.reportedAt)}',
+                                    '[GÜVENDE] Konum alındı • en yakın: ${report.placeName ?? 'Toplanma alanı bulunamadı'} • ${_timeAgo(report.reportedAt)}',
+                                  ),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -1070,7 +1345,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                           if (report?.batteryPercent != null) ...[
                             const SizedBox(height: 4),
                             Text(
-                              'Pil: %${report!.batteryPercent}',
+                              context.t(
+                                'Battery: ${report!.batteryPercent}%',
+                                'Pil: %${report.batteryPercent}',
+                              ),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -1085,10 +1363,13 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
               ),
               const SizedBox(height: 10),
               if (_safetyContacts.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 4),
                   child: Text(
-                    'Yakınlarınızı ekleyerek kişisel güvenlik listenizi oluşturun.',
+                    context.t(
+                      'Add contacts to create your personal safety list.',
+                      'Yakınlarınızı ekleyerek kişisel güvenlik listenizi oluşturun.',
+                    ),
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -1112,11 +1393,14 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                         ),
                         subtitle: Text(
                           contact.phone.isEmpty
-                              ? 'Güvenlik ağı üyesi'
+                              ? context.t(
+                                  'Safety circle member',
+                                  'Güvenlik ağı üyesi',
+                                )
                               : contact.phone,
                         ),
                         trailing: IconButton(
-                          tooltip: 'Yakını sil',
+                          tooltip: context.t('Remove contact', 'Yakını sil'),
                           onPressed: _isSavingContacts
                               ? null
                               : () => _removeSafetyContact(contact),
@@ -1136,7 +1420,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                           child: TextButton.icon(
                             onPressed: () => _createSafetyInvite(contact),
                             icon: const Icon(Icons.send_rounded, size: 16),
-                            label: const Text('Güvenlik ağı daveti gönder'),
+                            label: Text(
+                              context.t(
+                                'Send safety circle invitation',
+                                'Güvenlik ağı daveti gönder',
+                              ),
+                            ),
                           ),
                         ),
                     ],
@@ -1154,8 +1443,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                       color: AppColors.warning.withValues(alpha: 0.35),
                     ),
                   ),
-                  child: const Text(
-                    'Canlı davet için demo oturumundan çıkıp Firebase Authentication ile açılmış gerçek bir hesapla giriş yapın. Bu oturumda davet gönderilemez.',
+                  child: Text(
+                    context.t(
+                      'To send live invitations, sign out of the demo session and sign in with a real Firebase Authentication account. Invitations cannot be sent in this session.',
+                      'Canlı davet için demo oturumundan çıkıp Firebase Authentication ile açılmış gerçek bir hesapla giriş yapın. Bu oturumda davet gönderilemez.',
+                    ),
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textPrimary,
@@ -1167,7 +1459,12 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _acceptSafetyInvite,
                   icon: const Icon(Icons.group_add_rounded, size: 18),
-                  label: const Text('Davet Kodunu Kabul Et'),
+                  label: Text(
+                    context.t(
+                      'Accept Invitation Code',
+                      'Davet Kodunu Kabul Et',
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -1186,8 +1483,14 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                       : const Icon(Icons.sms_outlined),
                   label: Text(
                     _isQueueingEmergencySms
-                        ? 'Acil SMS kuyruğa ekleniyor…'
-                        : 'Yardım SMS\'ini çevrimdışı kuyruğa al',
+                        ? context.t(
+                            'Queuing emergency SMS…',
+                            'Acil SMS kuyruğa ekleniyor…',
+                          )
+                        : context.t(
+                            'Queue help SMS offline',
+                            'Yardım SMS\'ini çevrimdışı kuyruğa al',
+                          ),
                   ),
                 ),
               ),
@@ -1196,7 +1499,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Bekleyen acil SMS taslakları (${_pendingEmergencySmsDrafts.length})',
+                    context.t(
+                      'Pending emergency SMS drafts (${_pendingEmergencySmsDrafts.length})',
+                      'Bekleyen acil SMS taslakları (${_pendingEmergencySmsDrafts.length})',
+                    ),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -1209,15 +1515,24 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                       color: AppColors.warning,
                     ),
                     title: Text(
-                      'Kaydedildi • ${draft.createdAt.toLocal()}',
+                      context.t(
+                        'Saved • ${draft.createdAt.toLocal()}',
+                        'Kaydedildi • ${draft.createdAt.toLocal()}',
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    subtitle: const Text(
-                      'Henüz gönderilmedi; resmî SMS hedefi yapılandırılmadı.',
+                    subtitle: Text(
+                      context.t(
+                        'Not sent yet; no official SMS destination is configured.',
+                        'Henüz gönderilmedi; resmî SMS hedefi yapılandırılmadı.',
+                      ),
                     ),
                     trailing: PopupMenuButton<String>(
-                      tooltip: 'SMS taslağı işlemleri',
+                      tooltip: context.t(
+                        'SMS draft actions',
+                        'SMS taslağı işlemleri',
+                      ),
                       onSelected: (action) {
                         if (action == 'open') {
                           _openEmergencySmsDraft(draft);
@@ -1225,14 +1540,24 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                           _markEmergencySmsSent(draft);
                         }
                       },
-                      itemBuilder: (context) => const [
+                      itemBuilder: (context) => [
                         PopupMenuItem(
                           value: 'open',
-                          child: Text('SMS uygulamasında aç'),
+                          child: Text(
+                            context.t(
+                              'Open in messaging app',
+                              'SMS uygulamasında aç',
+                            ),
+                          ),
                         ),
                         PopupMenuItem(
                           value: 'sent',
-                          child: Text('Gönderildi olarak işaretle'),
+                          child: Text(
+                            context.t(
+                              'Mark as sent',
+                              'Gönderildi olarak işaretle',
+                            ),
+                          ),
                         ),
                       ],
                       child: const Icon(Icons.more_vert_rounded),
@@ -1268,8 +1593,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                       : const Icon(Icons.person_add_alt_1_rounded, size: 18),
                   label: Text(
                     _safetyContacts.length >= SafetyCircleService.maxContacts
-                        ? 'En fazla 5 yakın eklenebilir'
-                        : 'Yakın Ekle',
+                        ? context.t(
+                            'Up to 5 contacts allowed',
+                            'En fazla 5 yakın eklenebilir',
+                          )
+                        : context.t('Add Contact', 'Yakın Ekle'),
                   ),
                 ),
               ),
@@ -1301,14 +1629,20 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                           : const Icon(Icons.sms_outlined),
                       label: Text(
                         _isPreparingSms
-                            ? 'SMS açılıyor…'
-                            : 'Sıradaki SMS: ${_smsQueue[_nextSmsIndex].name}',
+                            ? context.t('Opening SMS…', 'SMS açılıyor…')
+                            : context.t(
+                                'Next SMS: ${_smsQueue[_nextSmsIndex].name}',
+                                'Sıradaki SMS: ${_smsQueue[_nextSmsIndex].name}',
+                              ),
                       ),
                     ),
                   )
                 else
-                  const Text(
-                    'Tüm SMS taslakları açıldı. Her birini göndermek için mesaj uygulamasında Gönder’e basın.',
+                  Text(
+                    context.t(
+                      'All SMS drafts have been opened. Tap Send in your messaging app to send each one.',
+                      'Tüm SMS taslakları açıldı. Her birini göndermek için mesaj uygulamasında Gönder’e basın.',
+                    ),
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
@@ -1337,10 +1671,16 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     if (inviteCode == null ||
         !_safetyCircleService.canUseLiveSharing(widget.user.uid)) {
       return _buildStatusCard(
-        title: 'Ulaşılamıyor',
+        title: context.t('Unreachable', 'Ulaşılamıyor'),
         subtitle: inviteCode == null
-            ? 'Canlı paylaşım için davet kabul edilmeli.'
-            : 'Bu oturum Firebase ile doğrulanmadı.',
+            ? context.t(
+                'Invitation must be accepted for live sharing.',
+                'Canlı paylaşım için davet kabul edilmeli.',
+              )
+            : context.t(
+                'This session is not authenticated with Firebase.',
+                'Bu oturum Firebase ile doğrulanmadı.',
+              ),
         color: AppColors.textSecondary,
         icon: Icons.signal_wifi_connected_no_internet_4_rounded,
       );
@@ -1354,8 +1694,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _buildStatusCard(
-            title: 'Ulaşılamıyor',
-            subtitle: 'Canlı durum alınamadı: ${snapshot.error}',
+            title: context.t('Unreachable', 'Ulaşılamıyor'),
+            subtitle: context.t(
+              'Could not retrieve live status: ${snapshot.error}',
+              'Canlı durum alınamadı: ${snapshot.error}',
+            ),
             color: AppColors.textSecondary,
             icon: Icons.error_outline_rounded,
           );
@@ -1363,19 +1706,28 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         final status = snapshot.data;
         if (status == null || !status.isReachable) {
           return _buildStatusCard(
-            title: 'Ulaşılamıyor',
+            title: context.t('Unreachable', 'Ulaşılamıyor'),
             subtitle: status == null
-                ? 'Davet bekleniyor veya henüz bildirim yok.'
-                : 'Son bildirim ${status.reportedAt.toLocal()}',
+                ? context.t(
+                    'Waiting for invitation or no report yet.',
+                    'Davet bekleniyor veya henüz bildirim yok.',
+                  )
+                : context.t(
+                    'Last report: ${status.reportedAt.toLocal()}',
+                    'Son bildirim ${status.reportedAt.toLocal()}',
+                  ),
             color: AppColors.textSecondary,
             icon: Icons.signal_wifi_connected_no_internet_4_rounded,
           );
         }
         final helpRequested = status.status == SafetyStatus.helpRequested;
         return _buildStatusCard(
-          title: helpRequested ? 'Yardım İstedi' : 'Güvende',
+          title: context.t(
+            helpRequested ? 'Help requested' : 'Safe',
+            helpRequested ? 'Yardım İstedi' : 'Güvende',
+          ),
           subtitle:
-              '${status.reportedAt.toLocal()}${status.placeName == null ? '' : ' • ${status.placeName}'}',
+              '${status.reportedAt.toLocal()}${status.placeName == null ? '' : ' • ${_areaName(status.placeName!)}'}',
           color: helpRequested ? AppColors.emergencyRed : AppColors.success,
           icon: helpRequested ? Icons.sos_rounded : Icons.verified_user_rounded,
         );
@@ -1430,7 +1782,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     final color = category?.color ?? AppColors.primaryBlue;
     return FilterChip(
       selected: isSelected,
-      label: Text(category?.title ?? 'Tümü'),
+      label: Text(
+        category == null
+            ? context.t('All', 'Tümü')
+            : _areaCategoryTitle(category),
+      ),
       avatar: Icon(category?.icon ?? Icons.dashboard_rounded, size: 16),
       selectedColor: color.withValues(alpha: 0.16),
       checkmarkColor: color,
@@ -1464,7 +1820,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    area.name,
+                    _areaName(area.name),
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -1481,7 +1837,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    area.category.title,
+                    _areaCategoryTitle(area.category),
                     style: TextStyle(
                       color: area.category.color,
                       fontWeight: FontWeight.w700,
@@ -1493,7 +1849,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              area.address,
+              _areaAddress(area.address),
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -1504,14 +1860,20 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Kapasite: ${area.occupancy} / ${area.capacity} Kişi',
+                  context.t(
+                    'Occupancy: ${area.occupancy} / ${area.capacity} people',
+                    'Kapasite: ${area.occupancy} / ${area.capacity} Kişi',
+                  ),
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
                 ),
                 Text(
-                  'Boş Kontenjan: ${area.availableSpots}',
+                  context.t(
+                    'Available spots: ${area.availableSpots}',
+                    'Boş Kontenjan: ${area.availableSpots}',
+                  ),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -1537,8 +1899,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.navigation_rounded, size: 16),
-                label: const Text(
-                  'Haritada Rotayı Çiz & Buraya Git',
+                label: Text(
+                  context.t(
+                    'Plot Route & Go Here',
+                    'Haritada Rotayı Çiz & Buraya Git',
+                  ),
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -1571,12 +1936,13 @@ class _CitizenHelpRequestSheet extends StatefulWidget {
   const _CitizenHelpRequestSheet({required this.user});
 
   @override
-  State<_CitizenHelpRequestSheet> createState() => _CitizenHelpRequestSheetState();
+  State<_CitizenHelpRequestSheet> createState() =>
+      _CitizenHelpRequestSheetState();
 }
 
 class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
   final _textCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController(text: 'Şehitkamil Merkez, Gaziantep');
+  final _locationCtrl = TextEditingController();
   final _crisisService = CrisisDataService();
 
   LatLng? _currentGps;
@@ -1586,25 +1952,45 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
   final List<Map<String, String>> _presetTemplates = [
     {
       'label': '🚨 Enkaz Altında Ses Var',
-      'text': 'Binanın 2. katında çökme var, içeride 3 kişilik bir aile ses veriyor. Acil arama kurtarma ekibi ve dinleme cihazı gerekiyor!',
+      'text':
+          'Binanın 2. katında çökme var, içeride 3 kişilik bir aile ses veriyor. Acil arama kurtarma ekibi ve dinleme cihazı gerekiyor!',
+      'labelEn': '🚨 Voices Under Rubble',
+      'textEn':
+          'A building has collapsed on the second floor. A family of three can be heard inside. Urgent search-and-rescue support and listening equipment are needed.',
     },
     {
       'label': '🩺 Acil İlaç & Medikal',
-      'text': 'Kronik kalp ve şeker hastamız var, acil insülin ve tansiyon ilacına ihtiyaç duyuyoruz. Ambulans sevk edilmeli.',
+      'text':
+          'Kronik kalp ve şeker hastamız var, acil insülin ve tansiyon ilacına ihtiyaç duyuyoruz. Ambulans sevk edilmeli.',
+      'labelEn': '🩺 Urgent Medicine & Medical Aid',
+      'textEn':
+          'We have patients with chronic heart disease and diabetes who urgently need insulin and blood pressure medication. An ambulance is needed.',
     },
     {
       'label': '🍼 Bebek Maması & Su',
-      'text': 'Bulunduğumuz toplanma noktasında içme suyu tükendi ve bebekler için mama ile çocuk bezi ihtiyacımız var.',
+      'text':
+          'Bulunduğumuz toplanma noktasında içme suyu tükendi ve bebekler için mama ile çocuk bezi ihtiyacımız var.',
+      'labelEn': '🍼 Infant Formula & Water',
+      'textEn':
+          'Our assembly point has run out of drinking water. We need infant formula and diapers.',
     },
     {
       'label': '⛺ Çadır & Isıtıcı',
-      'text': 'Evimiz hasarlı ve dışarıdayız. Hava çok soğuk, 2 aile için kışlık çadır, soba ve battaniye talep ediyoruz.',
+      'text':
+          'Evimiz hasarlı ve dışarıdayız. Hava çok soğuk, 2 aile için kışlık çadır, soba ve battaniye talep ediyoruz.',
+      'labelEn': '⛺ Tent & Heater',
+      'textEn':
+          'Our home is damaged and we are outside. It is very cold; we need winter tents, a heater, and blankets for two families.',
     },
   ];
 
   @override
   void initState() {
     super.initState();
+    _locationCtrl.text = context.t(
+      'Central Şehitkamil, Gaziantep',
+      'Şehitkamil Merkez, Gaziantep',
+    );
     _fetchGpsLocation();
   }
 
@@ -1622,7 +2008,8 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
       setState(() {
         _currentGps = loc;
         _isLoadingGps = false;
-        _locationCtrl.text = 'GPS: ${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)} (Şehitkamil, Gaziantep)';
+        _locationCtrl.text =
+            'GPS: ${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)} (Şehitkamil, Gaziantep)';
       });
     } catch (_) {
       if (!mounted) return;
@@ -1636,8 +2023,13 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
     final text = _textCtrl.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen durumunuzu açıklayan bir mesaj yazınız.'),
+        SnackBar(
+          content: Text(
+            context.t(
+              'Please enter a message describing your situation.',
+              'Lütfen durumunuzu açıklayan bir mesaj yazınız.',
+            ),
+          ),
           backgroundColor: AppColors.emergencyRed,
         ),
       );
@@ -1657,6 +2049,7 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
         citizenPhone: widget.user.phone,
         latitude: _currentGps?.latitude,
         longitude: _currentGps?.longitude,
+        english: context.isEnglish,
       );
 
       if (!mounted) return;
@@ -1671,12 +2064,45 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('İhbar iletilirken bir hata oluştu: $e'),
+          content: Text(
+            context.t(
+              'An error occurred while submitting the report: $e',
+              'İhbar iletilirken bir hata oluştu: $e',
+            ),
+          ),
           backgroundColor: AppColors.emergencyRed,
         ),
       );
     }
   }
+
+  String _triageCategoryTitle(String category) => switch (category) {
+    'ENKAZ & ARAMA KURTARMA' => context.t(
+      'Rubble & Search and Rescue',
+      category,
+    ),
+    'ACİL SAĞLIK & MEDİKAL' => context.t(
+      'Emergency Health & Medical',
+      category,
+    ),
+    'SU, GIDA & BEBEK İHTİYACI' => context.t(
+      'Water, Food & Baby Supplies',
+      category,
+    ),
+    'BARINMA & ISINMA' => context.t('Shelter & Heating', category),
+    'GENEL DESTEK & LOJİSTİK' => context.t(
+      'General Support & Logistics',
+      category,
+    ),
+    _ => category,
+  };
+
+  String _urgencyTitle(UrgencyLevel urgency) => switch (urgency) {
+    UrgencyLevel.critical => context.t('CRITICAL', urgency.title),
+    UrgencyLevel.high => context.t('HIGH', urgency.title),
+    UrgencyLevel.medium => context.t('MEDIUM', urgency.title),
+    UrgencyLevel.low => context.t('LOW', urgency.title),
+  };
 
   void _showAiResultDialog(AiTriageResult result) {
     showDialog(
@@ -1691,17 +2117,33 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                 color: result.urgency.color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(result.urgency.icon, color: result.urgency.color, size: 24),
+              child: Icon(
+                result.urgency.icon,
+                color: result.urgency.color,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('İhbar AFAD\'a İletildi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                   Text(
-                    'Meta AI Triyaj Raporu (#${result.id})',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    context.t('Report sent to AFAD', 'İhbar AFAD\'a İletildi'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    context.t(
+                      'Meta AI Triage Report (#${result.id})',
+                      'Meta AI Triyaj Raporu (#${result.id})',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -1727,7 +2169,7 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          result.category,
+                          _triageCategoryTitle(result.category),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -1735,13 +2177,16 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: result.urgency.color,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            result.urgency.title,
+                            _urgencyTitle(result.urgency),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -1754,29 +2199,67 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                     const SizedBox(height: 8),
                     Text(
                       '"${result.rawText}"',
-                      style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
-              const Text('Meta AI Müdahale Protokolü:', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              Text(
+                context.t(
+                  'Meta AI Response Protocol:',
+                  'Meta AI Müdahale Protokolü:',
+                ),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(result.recommendedAction, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+              Text(
+                result.recommendedAction,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textPrimary,
+                ),
+              ),
               const SizedBox(height: 12),
-              const Text('Talep Edilen Kaynaklar:', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              Text(
+                context.t('Requested Resources:', 'Talep Edilen Kaynaklar:'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
-                children: result.requiredResources.map((res) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(res, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primaryBlue)),
-                )).toList(),
+                children: result.requiredResources
+                    .map(
+                      (res) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          res,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryBlue,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
               const SizedBox(height: 14),
               Container(
@@ -1786,13 +2269,24 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
-                  children: const [
-                    Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.success,
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'İhbarınız Firebase veritabanına ve AFAD Kriz Masası ekranına canlı olarak düştü.',
-                        style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.w700),
+                        context.t(
+                          'Your report was added to the Firebase database and AFAD Crisis Desk in real time.',
+                          'İhbarınız Firebase veritabanına ve AFAD Kriz Masası ekranına canlı olarak düştü.',
+                        ),
+                        style: TextStyle(
+                          color: AppColors.success,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -1804,7 +2298,7 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(dlgContext),
-            child: const Text('Tamam'),
+            child: Text(context.t('Done', 'Tamam')),
           ),
         ],
       ),
@@ -1848,20 +2342,36 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                     color: AppColors.emergencyRed.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.emergency_rounded, color: AppColors.emergencyRed, size: 24),
+                  child: const Icon(
+                    Icons.emergency_rounded,
+                    color: AppColors.emergencyRed,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
-                        'Acil Yardım Talebi',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        context.t(
+                          'Emergency Help Request',
+                          'Acil Yardım Talebi',
+                        ),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       Text(
-                        'Meta AI Llama 3 ile anlık triyaj ve AFAD sevkiyatı',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        context.t(
+                          'Instant triage with Meta AI Llama 3 and dispatch to AFAD',
+                          'Meta AI Llama 3 ile anlık triyaj ve AFAD sevkiyatı',
+                        ),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -1871,9 +2381,16 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
             const SizedBox(height: 16),
 
             // Quick Preset Templates
-            const Text(
-              'Hızlı Durum Şablonları (Dokunarak Seçebilirsiniz):',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+            Text(
+              context.t(
+                'Quick Situation Templates (Tap to select):',
+                'Hızlı Durum Şablonları (Dokunarak Seçebilirsiniz):',
+              ),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 8),
             SingleChildScrollView(
@@ -1883,11 +2400,19 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: ActionChip(
-                      label: Text(tmpl['label']!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                      label: Text(
+                        context.isEnglish ? tmpl['labelEn']! : tmpl['label']!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       backgroundColor: const Color(0xFFF1F5F9),
                       onPressed: () {
                         setState(() {
-                          _textCtrl.text = tmpl['text']!;
+                          _textCtrl.text = context.isEnglish
+                              ? tmpl['textEn']!
+                              : tmpl['text']!;
                         });
                       },
                     ),
@@ -1902,12 +2427,23 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
               controller: _textCtrl,
               maxLines: 4,
               decoration: InputDecoration(
-                labelText: 'Durumunuzu / İhtiyacınızı Yazın',
-                hintText: 'Örn: Binanın 2. katında çökme var, içeride 3 kişilik bir aile ses veriyor...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                labelText: context.t(
+                  'Describe your situation / needs',
+                  'Durumunuzu / İhtiyacınızı Yazın',
+                ),
+                hintText: context.t(
+                  'e.g. A building has collapsed on the second floor; a family of three can be heard inside...',
+                  'Örn: Binanın 2. katında çökme var, içeride 3 kişilik bir aile ses veriyor...',
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2),
+                  borderSide: const BorderSide(
+                    color: AppColors.primaryBlue,
+                    width: 2,
+                  ),
                 ),
               ),
             ),
@@ -1917,19 +2453,34 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
             TextField(
               controller: _locationCtrl,
               decoration: InputDecoration(
-                labelText: 'Konum / Adres Bilgisi',
-                prefixIcon: const Icon(Icons.pin_drop_rounded, color: AppColors.primaryBlue),
+                labelText: context.t(
+                  'Location / Address',
+                  'Konum / Adres Bilgisi',
+                ),
+                prefixIcon: const Icon(
+                  Icons.pin_drop_rounded,
+                  color: AppColors.primaryBlue,
+                ),
                 suffixIcon: _isLoadingGps
                     ? const Padding(
                         padding: EdgeInsets.all(12.0),
-                        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       )
                     : IconButton(
                         icon: const Icon(Icons.my_location_rounded),
                         onPressed: _fetchGpsLocation,
-                        tooltip: 'GPS Konumumu Güncelle',
+                        tooltip: context.t(
+                          'Update GPS location',
+                          'GPS Konumumu Güncelle',
+                        ),
                       ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
             const SizedBox(height: 18),
@@ -1941,24 +2492,48 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
                 backgroundColor: AppColors.emergencyRed,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 elevation: 2,
               ),
               child: _isSubmitting
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
                         SizedBox(width: 12),
-                        Text('Meta AI Analiz Ediyor & AFAD\'a İletiyor...', style: TextStyle(fontWeight: FontWeight.w800)),
+                        Text(
+                          context.t(
+                            'Meta AI is analyzing & sending to AFAD...',
+                            'Meta AI Analiz Ediyor & AFAD\'a İletiyor...',
+                          ),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ],
                     )
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.send_rounded, size: 20),
                         SizedBox(width: 8),
-                        Text('AFAD\'A İLET (AI Sınıflandır)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                        Text(
+                          context.t(
+                            'SEND TO AFAD (AI Classification)',
+                            'AFAD\'A İLET (AI Sınıflandır)',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ],
                     ),
             ),
@@ -1967,18 +2542,30 @@ class _CitizenHelpRequestSheetState extends State<_CitizenHelpRequestSheet> {
               onPressed: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Acil durum mesajı çevrimdışı SMS taslağına aktarıldı.'),
+                  SnackBar(
+                    content: Text(
+                      context.t(
+                        'Emergency message added to the offline SMS drafts.',
+                        'Acil durum mesajı çevrimdışı SMS taslağına aktarıldı.',
+                      ),
+                    ),
                     backgroundColor: AppColors.primaryBlue,
                   ),
                 );
               },
               icon: const Icon(Icons.sms_rounded, size: 18),
-              label: const Text('Şebeke Yoksa: SMS Taslağı Aç'),
+              label: Text(
+                context.t(
+                  'No Network? Open SMS Draft',
+                  'Şebeke Yoksa: SMS Taslağı Aç',
+                ),
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
           ],
@@ -2021,7 +2608,7 @@ class _SafetyContactDialogState extends State<_SafetyContactDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Yakınını Ekle'),
+      title: Text(context.t('Add Contact', 'Yakınını Ekle')),
       content: Form(
         key: _formKey,
         child: Column(
@@ -2030,21 +2617,25 @@ class _SafetyContactDialogState extends State<_SafetyContactDialog> {
             TextFormField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Adı'),
-              validator: (value) =>
-                  value == null || value.trim().isEmpty ? 'Ad girin.' : null,
+              decoration: InputDecoration(labelText: context.t('Name', 'Adı')),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? context.t('Enter a name.', 'Ad girin.')
+                  : null,
             ),
             TextFormField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Telefon numarası',
+              decoration: InputDecoration(
+                labelText: context.t('Phone number', 'Telefon numarası'),
                 hintText: '05XX XXX XX XX',
               ),
               validator: (value) {
                 final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
                 return digits.length < 10 || digits.length > 15
-                    ? 'Geçerli bir telefon numarası girin.'
+                    ? context.t(
+                        'Enter a valid phone number.',
+                        'Geçerli bir telefon numarası girin.',
+                      )
                     : null;
               },
             ),
@@ -2054,9 +2645,9 @@ class _SafetyContactDialogState extends State<_SafetyContactDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Vazgeç'),
+          child: Text(context.t('Cancel', 'Vazgeç')),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Ekle')),
+        FilledButton(onPressed: _submit, child: Text(context.t('Add', 'Ekle'))),
       ],
     );
   }

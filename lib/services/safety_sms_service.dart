@@ -65,11 +65,14 @@ class SafetySmsService {
     required String citizenName,
     required String? bloodGroup,
     required SafetyStatusReport report,
+    bool english = false,
   }) {
     final lines = <String>[
-      'GÜVENDEYİM',
-      'Adı: $citizenName',
-      'Kan grubu: ${bloodGroup ?? 'Belirtilmedi'}',
+      english ? 'I AM SAFE' : 'GÜVENDEYİM',
+      english ? 'Name: $citizenName' : 'Adı: $citizenName',
+      english
+          ? 'Blood type: ${bloodGroup ?? 'Not specified'}'
+          : 'Kan grubu: ${bloodGroup ?? 'Belirtilmedi'}',
     ];
 
     final latitude = report.latitude;
@@ -77,19 +80,25 @@ class SafetySmsService {
     if (latitude != null && longitude != null) {
       final coordinates =
           '${latitude.toStringAsFixed(6)},${longitude.toStringAsFixed(6)}';
-      final mapsUrl = Uri.https(
-        'maps.google.com',
-        '/',
-        {'q': coordinates},
-      );
+      final mapsUrl = Uri.https('maps.google.com', '/', {'q': coordinates});
       lines
-        ..add('Konum: $mapsUrl')
-        ..add('Koordinatlar: $coordinates');
+        ..add(english ? 'Location: $mapsUrl' : 'Konum: $mapsUrl')
+        ..add(
+          english ? 'Coordinates: $coordinates' : 'Koordinatlar: $coordinates',
+        );
     } else {
-      lines.add('Konum: GPS konumu alınamadı.');
+      lines.add(
+        english
+            ? 'Location: GPS location unavailable.'
+            : 'Konum: GPS konumu alınamadı.',
+      );
     }
 
-    lines.add('Saat: ${report.reportedAt.toLocal().toString()}');
+    lines.add(
+      english
+          ? 'Time: ${report.reportedAt.toLocal()}'
+          : 'Saat: ${report.reportedAt.toLocal()}',
+    );
     return lines.join('\n');
   }
 
@@ -98,29 +107,43 @@ class SafetySmsService {
     required String reportText,
     required String location,
     SafetyStatusReport? report,
+    bool english = false,
   }) {
     final lines = <String>[
-      'ACİL YARDIM İSTİYORUM',
-      'Adı: $citizenName',
-      'İhbar: ${reportText.trim()}',
-      'Adres: ${location.trim().isEmpty ? 'Belirtilmedi' : location.trim()}',
+      english ? 'I NEED EMERGENCY HELP' : 'ACİL YARDIM İSTİYORUM',
+      english ? 'Name: $citizenName' : 'Adı: $citizenName',
+      english ? 'Report: ${reportText.trim()}' : 'İhbar: ${reportText.trim()}',
+      english
+          ? 'Address: ${location.trim().isEmpty ? 'Not specified' : location.trim()}'
+          : 'Adres: ${location.trim().isEmpty ? 'Belirtilmedi' : location.trim()}',
     ];
     if (report?.latitude != null && report?.longitude != null) {
       final coordinates =
           '${report!.latitude!.toStringAsFixed(6)},${report.longitude!.toStringAsFixed(6)}';
-      lines.add('Koordinatlar: $coordinates');
+      lines.add(
+        english ? 'Coordinates: $coordinates' : 'Koordinatlar: $coordinates',
+      );
     }
-    lines.add('Saat: ${DateTime.now().toLocal()}');
+    lines.add(
+      english
+          ? 'Time: ${DateTime.now().toLocal()}'
+          : 'Saat: ${DateTime.now().toLocal()}',
+    );
     return lines.join('\n');
   }
 
   static String composeInviteMessage({
     required String inviterName,
     required String inviteCode,
+    bool english = false,
   }) {
-    return '$inviterName sizi Afet Destek güvenlik ağına davet ediyor. '
-        'Uygulamada "Davet Kodunu Kabul Et" bölümüne şu tek kullanımlık kodu girin: '
-        '$inviteCode. Kod 7 gün geçerlidir.';
+    return english
+        ? '$inviterName invites you to their Disaster Relief safety circle. '
+              'Enter this one-time code in the "Accept Invitation Code" section of the app: '
+              '$inviteCode. The code is valid for 7 days.'
+        : '$inviterName sizi Afet Destek güvenlik ağına davet ediyor. '
+              'Uygulamada "Davet Kodunu Kabul Et" bölümüne şu tek kullanımlık kodu girin: '
+              '$inviteCode. Kod 7 gün geçerlidir.';
   }
 
   static Future<List<SafetySmsDraft>> loadQueue(String userId) async {

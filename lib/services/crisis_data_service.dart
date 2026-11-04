@@ -41,17 +41,25 @@ class CrisisDataService extends ChangeNotifier {
       .length;
 
   int get openCollapseReportsCount => _reports
-      .where((r) =>
-          (r.category.toLowerCase().contains('enkaz') ||
-              r.category.toLowerCase().contains('çökme') ||
-              r.rawText.toLowerCase().contains('enkaz') ||
-              r.rawText.toLowerCase().contains('çök')) &&
-          r.status != 'Çözüldü')
+      .where(
+        (r) =>
+            (r.category.toLowerCase().contains('enkaz') ||
+                r.category.toLowerCase().contains('rubble') ||
+                r.category.toLowerCase().contains('search and rescue') ||
+                r.category.toLowerCase().contains('çökme') ||
+                r.rawText.toLowerCase().contains('enkaz') ||
+                r.rawText.toLowerCase().contains('rubble') ||
+                r.rawText.toLowerCase().contains('collapse') ||
+                r.rawText.toLowerCase().contains('çök')) &&
+            r.status != 'Çözüldü',
+      )
       .length;
 
   AiTriageResult? get mostCriticalReport {
     final criticals = _reports
-        .where((r) => r.urgency == UrgencyLevel.critical && r.status != 'Çözüldü')
+        .where(
+          (r) => r.urgency == UrgencyLevel.critical && r.status != 'Çözüldü',
+        )
         .toList();
     if (criticals.isEmpty) return null;
     return criticals.first;
@@ -78,26 +86,26 @@ class CrisisDataService extends ChangeNotifier {
           .limit(40)
           .snapshots()
           .listen(
-        (snapshot) {
-          if (snapshot.docs.isNotEmpty) {
-            final fetched = snapshot.docs
-                .map((d) => AiTriageResult.fromMap(d.data(), docId: d.id))
-                .toList();
+            (snapshot) {
+              if (snapshot.docs.isNotEmpty) {
+                final fetched = snapshot.docs
+                    .map((d) => AiTriageResult.fromMap(d.data(), docId: d.id))
+                    .toList();
 
-            final merged = <AiTriageResult>[...fetched];
-            for (final sample in AiTriageResult.sampleScenarios) {
-              if (!merged.any((r) => r.id == sample.id)) {
-                merged.add(sample);
+                final merged = <AiTriageResult>[...fetched];
+                for (final sample in AiTriageResult.sampleScenarios) {
+                  if (!merged.any((r) => r.id == sample.id)) {
+                    merged.add(sample);
+                  }
+                }
+                _reports = merged;
+                notifyListeners();
               }
-            }
-            _reports = merged;
-            notifyListeners();
-          }
-        },
-        onError: (e) {
-          debugPrint('Firestore real-time reports error: $e');
-        },
-      );
+            },
+            onError: (e) {
+              debugPrint('Firestore real-time reports error: $e');
+            },
+          );
 
       // 2. Real-time listener for relief areas
       _areasSubscription?.cancel();
@@ -105,22 +113,22 @@ class CrisisDataService extends ChangeNotifier {
           .collection('areas')
           .snapshots()
           .listen(
-        (areasSnap) {
-          for (final doc in areasSnap.docs) {
-            final area = ReliefAreaModel.fromMap(doc.data(), docId: doc.id);
-            final index = _areas.indexWhere((item) => item.id == area.id);
-            if (index >= 0) {
-              _areas[index] = area;
-            } else {
-              _areas.add(area);
-            }
-          }
-          notifyListeners();
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          debugPrint('Firestore area stream error: $error');
-        },
-      );
+            (areasSnap) {
+              for (final doc in areasSnap.docs) {
+                final area = ReliefAreaModel.fromMap(doc.data(), docId: doc.id);
+                final index = _areas.indexWhere((item) => item.id == area.id);
+                if (index >= 0) {
+                  _areas[index] = area;
+                } else {
+                  _areas.add(area);
+                }
+              }
+              notifyListeners();
+            },
+            onError: (Object error, StackTrace stackTrace) {
+              debugPrint('Firestore area stream error: $error');
+            },
+          );
     } catch (e) {
       debugPrint('Firestore sync initialization error: $e');
     }
@@ -142,9 +150,12 @@ class CrisisDataService extends ChangeNotifier {
     String? citizenPhone,
     double? latitude,
     double? longitude,
+    bool english = false,
   }) async {
     final loc = (location != null && location.trim().isNotEmpty)
         ? location.trim()
+        : english
+        ? 'Central Şehitkamil, Gaziantep'
         : 'Şehitkamil Merkez, Gaziantep';
 
     // 1. Try Live Meta AI Model API
@@ -157,12 +168,16 @@ class CrisisDataService extends ChangeNotifier {
         citizenPhone: citizenPhone,
         latitude: latitude,
         longitude: longitude,
+        english: english,
       );
       if (liveResult != null) {
         _reports.insert(0, liveResult);
         notifyListeners();
         try {
-          await _firestore?.collection('reports').doc(liveResult.id).set(liveResult.toMap());
+          await _firestore
+              ?.collection('reports')
+              .doc(liveResult.id)
+              .set(liveResult.toMap());
         } catch (_) {}
         return liveResult;
       }
@@ -176,6 +191,10 @@ class CrisisDataService extends ChangeNotifier {
     AiTriageResult result;
 
     if (lower.contains('enkaz') ||
+        lower.contains('rubble') ||
+        lower.contains('collapse') ||
+        lower.contains('trapped') ||
+        lower.contains('rescue') ||
         lower.contains('ses') ||
         lower.contains('çök') ||
         lower.contains('altında') ||
@@ -185,7 +204,8 @@ class CrisisDataService extends ChangeNotifier {
         lower.contains('yangın') ||
         lower.contains('patla') ||
         lower.contains('moloz') ||
-        lower.contains('sıkış')) {
+        lower.contains('sıkış') ||
+        lower.contains('explosion')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
@@ -214,6 +234,8 @@ class CrisisDataService extends ChangeNotifier {
         longitude: longitude,
       );
     } else if (lower.contains('hasta') ||
+        lower.contains('patient') ||
+        lower.contains('medicine') ||
         lower.contains('ilaç') ||
         lower.contains('insülin') ||
         lower.contains('kan') ||
@@ -226,7 +248,12 @@ class CrisisDataService extends ChangeNotifier {
         lower.contains('hamile') ||
         lower.contains('serum') ||
         lower.contains('donma') ||
-        lower.contains('hipotermi')) {
+        lower.contains('hipotermi') ||
+        lower.contains('hypothermia') ||
+        lower.contains('injured') ||
+        lower.contains('fracture') ||
+        lower.contains('dialysis') ||
+        lower.contains('pregnant')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
@@ -255,16 +282,26 @@ class CrisisDataService extends ChangeNotifier {
         longitude: longitude,
       );
     } else if (lower.contains('su') ||
+        lower.contains('water') ||
         lower.contains('mama') ||
+        lower.contains('formula') ||
         lower.contains('gıda') ||
+        lower.contains('food') ||
         lower.contains('yemek') ||
+        lower.contains('meal') ||
         lower.contains('ekmek') ||
+        lower.contains('bread') ||
         lower.contains('aç') ||
+        lower.contains('hungry') ||
         lower.contains('susuz') ||
+        lower.contains('thirsty') ||
         lower.contains('bebek') ||
+        lower.contains('baby') ||
         lower.contains('bez') ||
+        lower.contains('diaper') ||
         lower.contains('konserve') ||
-        lower.contains('süt')) {
+        lower.contains('süt') ||
+        lower.contains('milk')) {
       result = AiTriageResult(
         id: reportId,
         rawText: text.trim(),
@@ -292,13 +329,19 @@ class CrisisDataService extends ChangeNotifier {
         longitude: longitude,
       );
     } else if (lower.contains('çadır') ||
+        lower.contains('tent') ||
         lower.contains('barın') ||
+        lower.contains('shelter') ||
         lower.contains('ısın') ||
+        lower.contains('heat') ||
         lower.contains('soba') ||
         lower.contains('ısıtıcı') ||
+        lower.contains('heater') ||
         lower.contains('battaniye') ||
+        lower.contains('blanket') ||
         lower.contains('mont') ||
         lower.contains('soğuk') ||
+        lower.contains('cold') ||
         lower.contains('donuyoruz') ||
         lower.contains('tulum')) {
       result = AiTriageResult(
@@ -353,6 +396,73 @@ class CrisisDataService extends ChangeNotifier {
         latitude: latitude,
         longitude: longitude,
       );
+    }
+
+    if (english) {
+      final englishResult = switch (result.category) {
+        'ENKAZ & ARAMA KURTARMA' => result.copyWith(
+          category: 'Rubble & Search and Rescue',
+          recommendedAction:
+              'URGENT SEARCH AND RESCUE: AFAD and AKUT teams have been dispatched with acoustic listening devices and K9 units. Gas and electricity lines should be shut off immediately; avoid creating vibrations on the rubble.',
+          requiredResources: [
+            'Acoustic Listening Device',
+            'K9 Search and Rescue Dog',
+            'Hydraulic Cutter & Spreader',
+            'Thermal Camera Equipment',
+            'Heavy Search and Rescue Team',
+          ],
+          etaWindow: 'Urgent response during the first 4 hours',
+        ),
+        'ACİL SAĞLIK & MEDİKAL' => result.copyWith(
+          category: 'Emergency Health & Medical',
+          recommendedAction:
+              'URGENT MEDICAL RESPONSE: A field hospital and 112 emergency ambulance team have been dispatched. Keep the patient’s airway clear; apply direct pressure with a clean cloth if there is bleeding.',
+          requiredResources: [
+            '112 Emergency Ambulance',
+            'Portable Oxygen Cylinder',
+            'First Aid & Trauma Kit',
+            'Emergency Medical Supplies (Insulin/Cardiac)',
+            'Mobile Medical Team',
+          ],
+          etaWindow: 'Within 20–30 minutes',
+        ),
+        'SU, GIDA & BEBEK İHTİYACI' => result.copyWith(
+          category: 'Water, Food & Baby Supplies',
+          recommendedAction:
+              'ESSENTIAL SUPPLIES: The request has been added to the Red Crescent and Logistics Crisis Desk distribution plan. Drinking water and baby supplies have been added to the nearest relief convoy.',
+          requiredResources: [
+            'Packaged Drinking Water, 0.5 L (200 cartons)',
+            'Infant Formula (0–24 months) & Bottle',
+            'Diapers & Wet Wipes',
+            'High-Calorie Ready-to-Eat Food Packages',
+          ],
+          etaWindow: 'Replenishment within 1–3 hours',
+        ),
+        'BARINMA & ISINMA' => result.copyWith(
+          category: 'Shelter & Heating',
+          recommendedAction:
+              'SHELTER SUPPLIES: Winter emergency tents, catalytic heaters, and thermal blankets have been requested from AFAD tent-city stores. Directions to the nearest safe assembly area are available.',
+          requiredResources: [
+            '16 m² All-Weather Emergency Tent',
+            'Catalytic Gas/Electric Heater',
+            'Thermal Sleeping Bag & Heavy Blanket',
+            'Ground Insulation Mat',
+          ],
+          etaWindow: 'Setup within 2–4 hours',
+        ),
+        _ => result.copyWith(
+          category: 'General Support & Logistics',
+          recommendedAction:
+              'GENERAL COORDINATION: The request has been added to the Crisis Coordination Desk review queue. A field team will be assigned based on availability.',
+          requiredResources: [
+            'General Supplies Package',
+            'Hygiene Kit',
+            'Lighting & Flashlight',
+          ],
+          etaWindow: 'Coordination during the day',
+        ),
+      };
+      result = englishResult;
     }
 
     _reports.insert(0, result);
@@ -424,7 +534,10 @@ class CrisisDataService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _firestore?.collection('areas').doc(newArea.id).set(newArea.toMap());
+      await _firestore
+          ?.collection('areas')
+          .doc(newArea.id)
+          .set(newArea.toMap());
     } catch (e) {
       debugPrint('Firestore add area note: $e');
     }
@@ -474,7 +587,14 @@ class CrisisDataService extends ChangeNotifier {
   }
 
   /// Meta Llama 3 Context-Aware Assistant (Live Meta API + RAG)
-  Future<Map<String, dynamic>> askLlamaAssistant(String query) async {
-    return await MetaAiService().askAssistant(query, liveAreas: _areas);
+  Future<Map<String, dynamic>> askLlamaAssistant(
+    String query, {
+    bool english = false,
+  }) async {
+    return await MetaAiService().askAssistant(
+      query,
+      liveAreas: _areas,
+      english: english,
+    );
   }
 }

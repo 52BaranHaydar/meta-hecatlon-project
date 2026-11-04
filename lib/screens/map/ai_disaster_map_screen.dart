@@ -5,6 +5,7 @@ import 'package:internet_connection_checker_plus/internet_connection_checker_plu
 import 'package:latlong2/latlong.dart' hide Path;
 import '../../constants/app_colors.dart';
 import '../../models/relief_area_model.dart';
+import '../../services/language_service.dart';
 import '../../services/location_service.dart';
 import '../../services/walking_route_service.dart';
 import '../../widgets/emergency_112_button.dart';
@@ -90,9 +91,54 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
   void _setConnectivityError(Object error) {
     if (!mounted) return;
     setState(() {
-      _connectivityError = 'Bağlantı durumu belirlenemedi: $error';
+      _connectivityError = context.t(
+        'Could not determine connection status: $error',
+        'Bağlantı durumu belirlenemedi: $error',
+      );
     });
   }
+
+  String _localizedMapError(String error) => switch (error) {
+    'Konum servisleri kapalı. GPS’i açıp tekrar deneyin.' => context.t(
+      'Location services are off. Enable GPS and try again.',
+      error,
+    ),
+    'GPS izni verilmedi. Konum iznini açıp tekrar deneyin.' => context.t(
+      'GPS permission was not granted. Enable location permission and try again.',
+      error,
+    ),
+    'GPS izni kalıcı olarak reddedildi. Uygulama ayarlarından izin verin.' =>
+      context.t(
+        'GPS permission was permanently denied. Enable it in app settings.',
+        error,
+      ),
+    'Yaya rotası için OPENROUTESERVICE_API_KEY yapılandırılmalıdır.' =>
+      context.t(
+        'Configure OPENROUTESERVICE_API_KEY to request walking routes.',
+        error,
+      ),
+    'Yaya rotası bulunamadı.' => context.t(
+      'No walking route was found.',
+      error,
+    ),
+    'Yaya rotası yanıtı geçersiz.' => context.t(
+      'The walking route response is invalid.',
+      error,
+    ),
+    'Yaya rotası yanıtı eksik.' => context.t(
+      'The walking route response is incomplete.',
+      error,
+    ),
+    'Yaya rotası bilgileri geçersiz.' => context.t(
+      'Walking route details are invalid.',
+      error,
+    ),
+    'Yaya rotası koordinatları geçersiz.' => context.t(
+      'Walking route coordinates are invalid.',
+      error,
+    ),
+    _ => error,
+  };
 
   @override
   void didUpdateWidget(covariant AiDisasterMapScreen oldWidget) {
@@ -151,13 +197,16 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
     } on LocationServiceException catch (error) {
       if (!mounted) return;
       setState(() {
-        _locationError = error.message;
+        _locationError = _localizedMapError(error.message);
         _isLoadingLocation = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _locationError = 'GPS konumu alınamadı: $error';
+        _locationError = context.t(
+          'Could not get GPS location: $error',
+          'GPS konumu alınamadı: $error',
+        );
         _isLoadingLocation = false;
       });
     }
@@ -187,13 +236,16 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
     } on WalkingRouteException catch (error) {
       if (!mounted || requestId != _routeRequestId) return;
       setState(() {
-        _walkingRouteError = error.message;
+        _walkingRouteError = _localizedMapError(error.message);
         _isLoadingWalkingRoute = false;
       });
     } catch (error) {
       if (!mounted || requestId != _routeRequestId) return;
       setState(() {
-        _walkingRouteError = 'Yaya rotası alınamadı: $error';
+        _walkingRouteError = context.t(
+          'Could not get walking route: $error',
+          'Yaya rotası alınamadı: $error',
+        );
         _isLoadingWalkingRoute = false;
       });
     }
@@ -260,16 +312,27 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
         cos(latitude1) * sin(latitude2) -
         sin(latitude1) * cos(latitude2) * cos(longitudeDelta);
     final bearing = (atan2(y, x) * (180 / pi) + 360) % 360;
-    const directions = [
-      'Kuzey',
-      'Kuzeydoğu',
-      'Doğu',
-      'Güneydoğu',
-      'Güney',
-      'Güneybatı',
-      'Batı',
-      'Kuzeybatı',
-    ];
+    final directions = LanguageService.instance.isEnglish
+        ? const [
+            'North',
+            'Northeast',
+            'East',
+            'Southeast',
+            'South',
+            'Southwest',
+            'West',
+            'Northwest',
+          ]
+        : const [
+            'Kuzey',
+            'Kuzeydoğu',
+            'Doğu',
+            'Güneydoğu',
+            'Güney',
+            'Güneybatı',
+            'Batı',
+            'Kuzeybatı',
+          ];
     final index = ((bearing + 22.5) / 45).floor() % directions.length;
     return directions[index];
   }
@@ -398,8 +461,11 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                                   mapOrigin.latitude) *
                               12000 -
                           12,
-                      child: const Tooltip(
-                        message: 'Güvendeyim bildirimi',
+                      child: Tooltip(
+                        message: context.t(
+                          'I am safe update',
+                          'Güvendeyim bildirimi',
+                        ),
                         child: Icon(
                           Icons.verified_user_rounded,
                           color: AppColors.success,
@@ -504,7 +570,10 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Yaya rotası (OpenRouteService): ${activeDestination.name}',
+                              context.t(
+                                'Walking route (OpenRouteService): ${context.areaName(activeDestination.name)}',
+                                'Yaya rotası (OpenRouteService): ${activeDestination.name}',
+                              ),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
@@ -524,8 +593,8 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                                 color: Colors.white.withValues(alpha: 0.25),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Text(
-                                'Kapat',
+                              child: Text(
+                                context.t('Close', 'Kapat'),
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,
@@ -561,8 +630,10 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                             onChanged: (_) => setState(() {}),
                             style: const TextStyle(fontSize: 14),
                             decoration: InputDecoration(
-                              hintText:
-                                  'Nereye gitmek istiyorsunuz? (Toplanma alanı ara)',
+                              hintText: context.t(
+                                'Where do you want to go? (Search assembly areas)',
+                                'Nereye gitmek istiyorsunuz? (Toplanma alanı ara)',
+                              ),
                               hintStyle: const TextStyle(
                                 fontSize: 13,
                                 color: AppColors.textMuted,
@@ -603,14 +674,21 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                       children: [
                         _filterChip(
                           null,
-                          'Tümü (${ReliefAreaModel.demoAreas.length})',
+                          context.t(
+                            'All (${ReliefAreaModel.demoAreas.length})',
+                            'Tümü (${ReliefAreaModel.demoAreas.length})',
+                          ),
                           Icons.dashboard_rounded,
                         ),
                         const SizedBox(width: 8),
                         ...AreaCategory.values.map((cat) {
                           return Padding(
                             padding: const EdgeInsets.only(right: 8.0),
-                            child: _filterChip(cat, cat.title, cat.icon),
+                            child: _filterChip(
+                              cat,
+                              context.areaCategoryTitle(cat.title),
+                              cat.icon,
+                            ),
                           );
                         }),
                       ],
@@ -649,7 +727,10 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                               _userLocation != null
                                   ? 'GPS: ${_userLocation!.latitude.toStringAsFixed(5)}, ${_userLocation!.longitude.toStringAsFixed(5)}'
                                   : _isLoadingLocation
-                                  ? 'Gerçek GPS konumu alınıyor...'
+                                  ? context.t(
+                                      'Getting GPS location...',
+                                      'Gerçek GPS konumu alınıyor...',
+                                    )
                                   : _locationError!,
                               style: const TextStyle(
                                 fontSize: 11,
@@ -661,7 +742,10 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                           ),
                           if (!_isLoadingLocation)
                             IconButton(
-                              tooltip: 'GPS konumunu yenile',
+                              tooltip: context.t(
+                                'Refresh GPS location',
+                                'GPS konumunu yenile',
+                              ),
                               visualDensity: VisualDensity.compact,
                               onPressed: _loadUserLocation,
                               icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -693,12 +777,21 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                               children: [
                                 Text(
                                   _isLoadingWalkingRoute
-                                      ? 'Yaya rotası hesaplanıyor…'
+                                      ? context.t(
+                                          'Calculating walking route…',
+                                          'Yaya rotası hesaplanıyor…',
+                                        )
                                       : _walkingRoute != null &&
                                             _walkingRouteDestinationId ==
                                                 activeDestination?.id
-                                      ? 'Yaya rotası: ${activeDestination?.name ?? nearestAssemblyArea.name} • ${_formatDistance(_walkingRoute!.distanceMeters / 1000)} • ${_walkingRoute!.walkingMinutes} dk'
-                                      : 'En yakın alan: ${nearestAssemblyArea.name}',
+                                      ? context.t(
+                                          'Walking route: ${context.areaName(activeDestination?.name ?? nearestAssemblyArea.name)} • ${_formatDistance(_walkingRoute!.distanceMeters / 1000)} • ${_walkingRoute!.walkingMinutes} min',
+                                          'Yaya rotası: ${activeDestination?.name ?? nearestAssemblyArea.name} • ${_formatDistance(_walkingRoute!.distanceMeters / 1000)} • ${_walkingRoute!.walkingMinutes} dk',
+                                        )
+                                      : context.t(
+                                          'Nearest area: ${context.areaName(nearestAssemblyArea.name)}',
+                                          'En yakın alan: ${nearestAssemblyArea.name}',
+                                        ),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
@@ -710,8 +803,19 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                                       (_walkingRoute != null &&
                                               _walkingRouteDestinationId ==
                                                   activeDestination?.id
-                                          ? 'Afet kaynaklı yol kapanmalarını veya tehlikeleri doğrulamaz.'
-                                          : '${_formatDistance(nearestAssemblyDistanceKm!)} kuş uçuşu • gerçek yaya rotası değildir.'),
+                                          ? context.t(
+                                              'Does not verify disaster-related road closures or hazards.',
+                                              'Afet kaynaklı yol kapanmalarını veya tehlikeleri doğrulamaz.',
+                                            )
+                                          : nearestAssemblyDistanceKm == null
+                                          ? context.t(
+                                              'Distance is unavailable until GPS is enabled.',
+                                              'GPS konumu alınana kadar mesafe hesaplanamaz.',
+                                            )
+                                          : context.t(
+                                              '${_formatDistance(nearestAssemblyDistanceKm)} straight-line distance • not an actual walking route.',
+                                              '${_formatDistance(nearestAssemblyDistanceKm)} kuş uçuşu • gerçek yaya rotası değildir.',
+                                            )),
                                   style: TextStyle(
                                     color: _walkingRouteError == null
                                         ? AppColors.textSecondary
@@ -726,7 +830,10 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                               activeDestination != null &&
                               userLocation != null)
                             IconButton(
-                              tooltip: 'Yaya rotasını yenile',
+                              tooltip: context.t(
+                                'Refresh walking route',
+                                'Yaya rotasını yenile',
+                              ),
                               visualDensity: VisualDensity.compact,
                               onPressed: () => _loadWalkingRoute(
                                 userLocation,
@@ -760,8 +867,11 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  '[ÇEVRİMDIŞI MOD] Kayıtlı Güvenli Alanlar Açık',
+                                Text(
+                                  context.t(
+                                    '[OFFLINE MODE] Saved Safe Areas Available',
+                                    '[ÇEVRİMDIŞI MOD] Kayıtlı Güvenli Alanlar Açık',
+                                  ),
                                   style: TextStyle(
                                     color: Color(0xFFE65100),
                                     fontSize: 12,
@@ -771,17 +881,27 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                                 const SizedBox(height: 2),
                                 Text(
                                   nearestAssemblyArea == null ||
-                                          nearestAssemblyDistanceKm == null
-                                      ? 'Mesafe ve yön için GPS konumunu alın.'
-                                      : '${nearestAssemblyArea.name}: ${_formatDistance(nearestAssemblyDistanceKm)} kuş uçuşu ${_compassDirection(userLocation!, nearestAssemblyArea.location)}',
+                                          nearestAssemblyDistanceKm == null ||
+                                          userLocation == null
+                                      ? context.t(
+                                          'Get your GPS location to see distance and direction.',
+                                          'Mesafe ve yön için GPS konumunu alın.',
+                                        )
+                                      : context.t(
+                                          '${context.areaName(nearestAssemblyArea.name)}: ${_formatDistance(nearestAssemblyDistanceKm)} straight-line ${_compassDirection(userLocation, nearestAssemblyArea.location)}',
+                                          '${nearestAssemblyArea.name}: ${_formatDistance(nearestAssemblyDistanceKm)} kuş uçuşu ${_compassDirection(userLocation, nearestAssemblyArea.location)}',
+                                        ),
                                   style: const TextStyle(
                                     color: AppColors.textPrimary,
                                     fontSize: 11,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                const Text(
-                                  'Yerel demo kaydı; resmî güvenlik teyidi veya yürüyüş rotası değildir.',
+                                Text(
+                                  context.t(
+                                    'Local demo data; not an official safety confirmation or walking route.',
+                                    'Yerel demo kaydı; resmî güvenlik teyidi veya yürüyüş rotası değildir.',
+                                  ),
                                   style: TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 10,
@@ -803,7 +923,10 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        'Bağlantı durumu belirlenemedi; kayıtlı güvenli alanlar çevrimdışı kullanılabilir. $_connectivityError',
+                        context.t(
+                          'Could not determine connection status; saved safe areas are available offline. $_connectivityError',
+                          'Bağlantı durumu belirlenemedi; kayıtlı güvenli alanlar çevrimdışı kullanılabilir. $_connectivityError',
+                        ),
                         style: const TextStyle(
                           color: Color(0xFFE65100),
                           fontSize: 11,
@@ -918,8 +1041,8 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
     required bool hasWalkingRoute,
   }) {
     final distFormatted = distanceKm == null
-        ? 'GPS konumu bekleniyor'
-        : '${distanceKm < 1.0 ? '${(distanceKm * 1000).round()} metre' : '${distanceKm.toStringAsFixed(1)} km'}${hasWalkingRoute ? '' : ' kuş uçuşu'}';
+        ? context.t('Waiting for GPS location', 'GPS konumu bekleniyor')
+        : '${distanceKm < 1.0 ? '${(distanceKm * 1000).round()} ${context.t('m', 'metre')}' : '${distanceKm.toStringAsFixed(1)} km'}${hasWalkingRoute ? '' : context.t(' straight-line', ' kuş uçuşu')}';
 
     return Container(
       decoration: BoxDecoration(
@@ -959,7 +1082,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      area.category.title,
+                      context.areaCategoryTitle(area.category.title),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -977,7 +1100,9 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                     color: AppColors.primaryBlue,
                   ),
                   Text(
-                    walkMin == null ? ' --' : ' $walkMin dk',
+                    walkMin == null
+                        ? ' --'
+                        : ' $walkMin ${context.t('min', 'dk')}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
@@ -991,7 +1116,9 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                     color: AppColors.textSecondary,
                   ),
                   Text(
-                    carMin == null ? ' --' : ' $carMin dk',
+                    carMin == null
+                        ? ' --'
+                        : ' $carMin ${context.t('min', 'dk')}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -1005,7 +1132,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
           const SizedBox(height: 10),
 
           Text(
-            area.name,
+            context.areaName(area.name),
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -1017,8 +1144,11 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
           const SizedBox(height: 3),
           Text(
             distanceKm == null
-                ? area.address
-                : '${area.address} • $distFormatted mesafede',
+                ? context.areaAddress(area.address)
+                : context.t(
+                    '${context.areaAddress(area.address)} • $distFormatted away',
+                    '${area.address} • $distFormatted mesafede',
+                  ),
             style: const TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary,
@@ -1038,15 +1168,15 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Doluluk Durumu',
+                        Text(
+                          context.t('Occupancy', 'Doluluk Durumu'),
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textSecondary,
                           ),
                         ),
                         Text(
-                          '${area.occupancy} / ${area.capacity} Kişi',
+                          '${area.occupancy} / ${area.capacity} ${context.t('people', 'Kişi')}',
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -1098,8 +1228,8 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                     ),
                   ),
                   icon: const Icon(Icons.navigation_rounded, size: 18),
-                  label: const Text(
-                    'ROTAYI HARİTADA GÖSTER',
+                  label: Text(
+                    context.t('SHOW ROUTE ON MAP', 'ROTAYI HARİTADA GÖSTER'),
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                   ),
                 ),
@@ -1116,8 +1246,8 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                     ),
                   ),
                   icon: const Icon(Icons.info_outline_rounded, size: 18),
-                  label: const Text(
-                    'Detaylar',
+                  label: Text(
+                    context.t('Details', 'Detaylar'),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -1165,14 +1295,20 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Hedef: ${area.name}',
+                        context.t(
+                          'Destination: ${context.areaName(area.name)}',
+                          'Hedef: ${area.name}',
+                        ),
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
                         ),
                       ),
                       Text(
-                        '$distance • Tahmini $walkMin dakika yürüyüş',
+                        context.t(
+                          '$distance • Estimated $walkMin-minute walk',
+                          '$distance • Tahmini $walkMin dakika yürüyüş',
+                        ),
                         style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.textSecondary,
@@ -1186,10 +1322,11 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
             const SizedBox(height: 18),
             const Divider(),
             const SizedBox(height: 10),
-            const Text(
-              'Rota çizgisi OpenRouteService yaya ağına dayanır; afet kaynaklı '
-              'yol kapanmalarını veya anlık tehlikeleri doğrulamaz. Yerel resmî '
-              'yönlendirmeleri izleyin.',
+            Text(
+              context.t(
+                'The route follows the OpenRouteService walking network and does not verify disaster-related road closures or current hazards. Follow official local guidance.',
+                'Rota çizgisi OpenRouteService yaya ağına dayanır; afet kaynaklı yol kapanmalarını veya anlık tehlikeleri doğrulamaz. Yerel resmî yönlendirmeleri izleyin.',
+              ),
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
@@ -1204,7 +1341,10 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      '${area.name} yaya rotası haritada gösteriliyor; canlı GPS takibi değildir.',
+                      context.t(
+                        'Walking route to ${context.areaName(area.name)} is shown on the map; this is not live GPS tracking.',
+                        '${area.name} yaya rotası haritada gösteriliyor; canlı GPS takibi değildir.',
+                      ),
                     ),
                     backgroundColor: AppColors.success,
                   ),
@@ -1218,8 +1358,8 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                 ),
               ),
               icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text(
-                'Rotayı haritada göster',
+              label: Text(
+                context.t('Show route on map', 'Rotayı haritada göster'),
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -1259,7 +1399,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
               ),
               const SizedBox(height: 18),
               Text(
-                area.name,
+                context.areaName(area.name),
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -1267,15 +1407,18 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                area.address,
+                context.areaAddress(area.address),
                 style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Mevcut Hizmetler & Olanaklar',
+              Text(
+                context.t(
+                  'Available Services & Amenities',
+                  'Mevcut Hizmetler & Olanaklar',
+                ),
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               ),
               const SizedBox(height: 8),
@@ -1285,7 +1428,7 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                 children: area.services.map((srv) {
                   return Chip(
                     label: Text(
-                      srv,
+                      context.areaService(srv),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1297,8 +1440,11 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                 }).toList(),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Güncel İhtiyaç & Stok Durumu (Firestore stock)',
+              Text(
+                context.t(
+                  'Current Needs & Supplies',
+                  'Güncel İhtiyaç & Stok Durumu (Firestore stock)',
+                ),
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               ),
               const SizedBox(height: 8),
@@ -1308,9 +1454,12 @@ class _AiDisasterMapScreenState extends State<AiDisasterMapScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(entry.key, style: const TextStyle(fontSize: 13)),
                       Text(
-                        entry.value,
+                        context.stockItemName(entry.key),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      Text(
+                        context.stockQuantity(entry.value),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,

@@ -10,30 +10,29 @@ class MetaAiService {
   factory MetaAiService() => _instance;
   MetaAiService._internal();
 
-  static const String _defaultEndpoint = 'https://api.meta.ai/v1/chat/completions';
+  static const String _defaultEndpoint =
+      'https://api.meta.ai/v1/chat/completions';
   static const String _defaultModel = 'muse-spark-1.3';
 
   /// Resolves the optimal endpoint & model based on the configured API key format
-  (String endpoint, String model, String authHeader) _resolveApiConfig(String key) {
+  (String endpoint, String model, String authHeader) _resolveApiConfig(
+    String key,
+  ) {
     final trimmed = key.trim();
     if (trimmed.startsWith('gsk_')) {
       return (
         'https://api.groq.com/openai/v1/chat/completions',
         'llama-3.3-70b-versatile',
-        'Bearer $trimmed'
+        'Bearer $trimmed',
       );
     } else if (trimmed.startsWith('sk-or-')) {
       return (
         'https://openrouter.ai/api/v1/chat/completions',
         'meta-llama/llama-3.3-70b-instruct',
-        'Bearer $trimmed'
+        'Bearer $trimmed',
       );
     } else {
-      return (
-        _defaultEndpoint,
-        _defaultModel,
-        'Bearer $trimmed'
-      );
+      return (_defaultEndpoint, _defaultModel, 'Bearer $trimmed');
     }
   }
 
@@ -52,7 +51,9 @@ class MetaAiService {
       // 3.5 second fast timeout prevents UI freeze if network or key is invalid
       client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
       final uri = Uri.parse(endpoint);
-      final request = await client.postUrl(uri).timeout(const Duration(seconds: 4));
+      final request = await client
+          .postUrl(uri)
+          .timeout(const Duration(seconds: 4));
 
       request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
       request.headers.set(HttpHeaders.authorizationHeader, authHeader);
@@ -71,7 +72,9 @@ class MetaAiService {
       });
 
       request.write(payload);
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
 
       if (response.statusCode == 200) {
         final responseBody = await response.transform(utf8.decoder).join();
@@ -85,7 +88,9 @@ class MetaAiService {
           }
         }
       } else {
-        debugPrint('Meta AI HTTP ${response.statusCode} on $endpoint, switching to local reasoning engine.');
+        debugPrint(
+          'Meta AI HTTP ${response.statusCode} on $endpoint, switching to local reasoning engine.',
+        );
       }
     } catch (e) {
       debugPrint('Meta AI request note: $e (using local Meta Llama 3 engine)');
@@ -99,13 +104,32 @@ class MetaAiService {
   Future<Map<String, dynamic>> askAssistant(
     String query, {
     required List<ReliefAreaModel> liveAreas,
+    bool english = false,
   }) async {
-    final areaSummary = liveAreas.take(3).map((a) {
-      final stockStr = a.stock.entries.map((e) => '${e.key}: ${e.value}').join(', ');
-      return '- ${a.name} (Boş Kapasite: ${a.availableSpots} kişi | Stok: $stockStr)';
-    }).join('\n');
+    final areaSummary = liveAreas
+        .take(3)
+        .map((a) {
+          final stockStr = a.stock.entries
+              .map(
+                (e) => english
+                    ? '${_englishStockName(e.key)}: ${_englishStockQuantity(e.value)}'
+                    : '${e.key}: ${e.value}',
+              )
+              .join(', ');
+          return english
+              ? '- ${_englishAreaName(a.name)} (Available capacity: ${a.availableSpots} people | Supplies: $stockStr)'
+              : '- ${a.name} (Boş Kapasite: ${a.availableSpots} kişi | Stok: $stockStr)';
+        })
+        .join('\n');
 
-    final systemInstruction = '''Sen AFAD ve Kızılay kılavuzlarına bağlı resmi "Meta AI Afet ve İlk Yardım Asistanı"sın.
+    final systemInstruction = english
+        ? '''You are the official Meta AI Disaster and First Aid Assistant, following AFAD and Red Crescent guidance.
+Answer the user directly, politely, and in English.
+For assembly area or supply questions, use these current live system data:
+$areaSummary
+If the situation is life-threatening or requires urgent medical care, emphasize contacting the 112 Emergency Call Center.
+Keep answers clear and concise.'''
+        : '''Sen AFAD ve Kızılay kılavuzlarına bağlı resmi "Meta AI Afet ve İlk Yardım Asistanı"sın.
 Kullanıcının sorusuna doğrudan, nazik ve hayat kurtarıcı bir dille Türkçe yanıt ver.
 Eğer soru toplanma alanı veya stokla ilgiliyse şu anki canlı sistem verilerini kullan:
 $areaSummary
@@ -122,14 +146,54 @@ Gereksiz uzun açıklamalar yapma, net ve anlaşılır ol.''';
       final isEmergency = _isEmergencyQuery(query);
       return {
         'text': liveResponse,
-        'source': 'Meta AI Canlı Motoru (${MetaAiConfig.maskedKey})',
+        'source': english
+            ? 'Live Meta AI Engine (${MetaAiConfig.maskedKey})'
+            : 'Meta AI Canlı Motoru (${MetaAiConfig.maskedKey})',
         'isEmergency': isEmergency,
       };
     }
 
     // High-performance intelligent local Llama 3 engine
-    return _localAssistantFallback(query, liveAreas);
+    return _localAssistantFallback(query, liveAreas, english: english);
   }
+
+  String _englishAreaName(String name) => switch (name) {
+    'Atatürk Parkı Güvenli Toplanma Alanı' => 'Atatürk Park Safe Assembly Area',
+    'Kamil Ocak 1 Nolu Çadır Kent' => 'Kamil Ocak Tent City No. 1',
+    'Kızılay Aşevi ve Temel İhtiyaç Noktası' =>
+      'Red Crescent Soup Kitchen and Essential Supplies Point',
+    'Sahra Acil Müdahale ve İlk Yardım Merkezi' =>
+      'Field Emergency Response and First Aid Center',
+    'Masal Parkı 2. Toplanma Bölgesi' => 'Masal Park Assembly Area No. 2',
+    _ => name,
+  };
+
+  String _englishStockName(String name) => switch (name) {
+    'İçme Suyu' => 'Drinking Water',
+    'Battaniye' => 'Blankets',
+    'Bebek Maması' => 'Infant Formula',
+    'Isıtıcı' => 'Heaters',
+    'Kuru Gıda' => 'Dry Food',
+    'Sıcak Yemek' => 'Hot Meals',
+    'Hijyen Seti' => 'Hygiene Kits',
+    'Serum' => 'IV Fluids',
+    'Ağrı Kesici & Antibiyotik' => 'Painkillers & Antibiotics',
+    'İlk Yardım Çantası' => 'First Aid Kits',
+    'Çadır' => 'Tents',
+    _ => name,
+  };
+
+  String _englishStockQuantity(String quantity) => quantity
+      .replaceAll('Şişe', 'bottles')
+      .replaceAll('Adet', 'items')
+      .replaceAll('Kutu', 'boxes')
+      .replaceAll('Koli', 'cartons')
+      .replaceAll('Paket', 'packages')
+      .replaceAll('Boş', 'available')
+      .replaceAll('Günlük', 'daily')
+      .replaceAll('Porsiyon', 'portions')
+      .replaceAll('Bol', 'plenty')
+      .replaceAll('Mevcut', 'available');
 
   /// Live Meta AI Triage Classification
   Future<AiTriageResult?> classifyWithMetaAi(
@@ -140,8 +204,23 @@ Gereksiz uzun açıklamalar yapma, net ve anlaşılır ol.''';
     String? citizenPhone,
     double? latitude,
     double? longitude,
+    bool english = false,
   }) async {
-    final prompt = '''Aşağıdaki afetzede ihbar metnini acil yardım triyajı için analiz et ve SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir metin ekleme:
+    final prompt = english
+        ? '''Analyze the following disaster assistance report for emergency triage. Respond ONLY with JSON in the schema below and no other text. Write every human-readable field in English.
+Report: "$text"
+
+JSON schema:
+{
+  "category": "Rubble & Search and Rescue" | "Emergency Health & Medical" | "Water, Food & Baby Supplies" | "Shelter & Heating" | "General Support & Logistics",
+  "urgency": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+  "confidenceScore": 0.98,
+  "recommendedAction": "One-sentence response protocol for AFAD and rescue teams",
+  "requiredResources": ["Equipment 1", "Equipment 2", "Equipment 3"],
+  "shouldTrigger112": true or false,
+  "etaWindow": "For example: first 4 hours or 30 minutes"
+}'''
+        : '''Aşağıdaki afetzede ihbar metnini acil yardım triyajı için analiz et ve SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir metin ekleme:
 Metin: "$text"
 
 JSON Şeması:
@@ -157,7 +236,9 @@ JSON Şeması:
 
     final liveResponse = await generateReply(
       prompt: prompt,
-      systemInstruction: 'Sen AFAD Kriz Masası için çalışan uzman afet triyaj yapay zekasısın. Sadece saf JSON üret.',
+      systemInstruction: english
+          ? 'You are an expert disaster triage AI for the AFAD Crisis Desk. Respond only with valid JSON, with all human-readable values in English.'
+          : 'Sen AFAD Kriz Masası için çalışan uzman afet triyaj yapay zekasısın. Sadece saf JSON üret.',
       maxTokens: 1200,
     );
 
@@ -173,25 +254,38 @@ JSON Şeması:
           final jsonStr = cleanJson.substring(startIdx, endIdx + 1);
           final map = jsonDecode(jsonStr) as Map<String, dynamic>;
 
-          final reportId = 'AI-TR-${DateTime.now().millisecondsSinceEpoch % 100000}';
+          final reportId =
+              'AI-TR-${DateTime.now().millisecondsSinceEpoch % 100000}';
           final loc = (location != null && location.trim().isNotEmpty)
               ? location.trim()
+              : english
+              ? 'Central Şehitkamil, Gaziantep'
               : 'Şehitkamil Merkez, Gaziantep';
 
           return AiTriageResult(
             id: reportId,
             rawText: text.trim(),
-            category: map['category'] ?? 'GENEL DESTEK',
+            category:
+                map['category'] ??
+                (english ? 'General Support & Logistics' : 'GENEL DESTEK'),
             urgency: UrgencyLevel.fromString(map['urgency']?.toString()),
-            confidenceScore: (map['confidenceScore'] as num?)?.toDouble() ?? 0.95,
+            confidenceScore:
+                (map['confidenceScore'] as num?)?.toDouble() ?? 0.95,
             modelName: 'Meta-Llama (${MetaAiConfig.maskedKey})',
-            recommendedAction: map['recommendedAction'] ?? 'Kriz Masası incelemesine alındı.',
-            requiredResources: (map['requiredResources'] as List<dynamic>?)
+            recommendedAction:
+                map['recommendedAction'] ??
+                (english
+                    ? 'Added to the Crisis Desk review queue.'
+                    : 'Kriz Masası incelemesine alındı.'),
+            requiredResources:
+                (map['requiredResources'] as List<dynamic>?)
                     ?.map((e) => e.toString())
                     .toList() ??
-                ['İlk Yardım Kiti', 'Temel İhtiyaç'],
+                (english
+                    ? ['First Aid Kit', 'Essential Supplies']
+                    : ['İlk Yardım Kiti', 'Temel İhtiyaç']),
             shouldTrigger112: map['shouldTrigger112'] == true,
-            etaWindow: map['etaWindow'] ?? '1-2 Saat',
+            etaWindow: map['etaWindow'] ?? (english ? '1–2 hours' : '1-2 Saat'),
             timestamp: DateTime.now(),
             location: loc,
             status: 'Bekliyor',
@@ -217,15 +311,139 @@ JSON Şeması:
         lower.contains('bayıl') ||
         lower.contains('öl') ||
         lower.contains('enkaz') ||
-        lower.contains('boğul');
+        lower.contains('boğul') ||
+        lower.contains('breath') ||
+        lower.contains('heart') ||
+        lower.contains('bleed') ||
+        lower.contains('unconscious') ||
+        lower.contains('trapped') ||
+        lower.contains('chok');
   }
 
   /// Comprehensive domain-trained Meta Llama 3 Disaster Reasoning Engine
   Map<String, dynamic> _localAssistantFallback(
     String query,
-    List<ReliefAreaModel> areas,
-  ) {
+    List<ReliefAreaModel> areas, {
+    required bool english,
+  }) {
     final lower = query.toLowerCase().trim();
+
+    if (english) {
+      if (lower == 'hello' ||
+          lower == 'hi' ||
+          lower.startsWith('hello ') ||
+          lower.startsWith('hi ') ||
+          lower.contains('who are you') ||
+          lower.contains('what can you do')) {
+        return {
+          'text':
+              'Hello! I am the Meta Llama 3 Disaster and First Aid Assistant. I can help with emergency first aid, disaster safety, and information about relief areas and supplies. What would you like to know?',
+          'source': 'AFAD & Red Crescent Guidance',
+          'isEmergency': false,
+        };
+      }
+      if (lower.contains('breath') ||
+          lower.contains('heart') ||
+          lower.contains('unconscious') ||
+          lower.contains('faint') ||
+          lower.contains('chok') ||
+          lower.contains('emergency')) {
+        return {
+          'text':
+              '🚨 POSSIBLE EMERGENCY\n\n'
+              '1. Call 112 immediately using the red emergency button.\n'
+              '2. Check responsiveness by speaking to the person and gently tapping their shoulder.\n'
+              '3. Check for normal breathing for no more than 10 seconds.\n'
+              '4. If they are not breathing normally, follow the 112 operator’s instructions and begin CPR if you are trained.',
+          'source': 'Emergency First Aid Guidance',
+          'isEmergency': true,
+        };
+      }
+      if (lower.contains('bleed') ||
+          lower.contains('blood') ||
+          lower.contains('wound') ||
+          lower.contains('cut')) {
+        return {
+          'text':
+              '🩹 FIRST AID FOR BLEEDING\n\n'
+              '1. Apply firm, direct pressure to the wound with clean cloth or gauze.\n'
+              '2. If the first dressing becomes soaked, leave it in place, add another, and keep pressing.\n'
+              '3. Do not remove embedded objects or apply a tourniquet unless trained or instructed by emergency services.\n'
+              '4. Call 112 for severe bleeding.',
+          'source': 'Red Crescent First Aid Guidance',
+          'isEmergency': true,
+        };
+      }
+      if (lower.contains('rubble') ||
+          lower.contains('trapped') ||
+          lower.contains('collapse') ||
+          lower.contains('debris')) {
+        return {
+          'text':
+              '🏚️ IF TRAPPED UNDER RUBBLE\n\n'
+              '1. Stay as calm and still as possible; cover your mouth and nose from dust.\n'
+              '2. Do not use a flame or lighter.\n'
+              '3. Avoid shouting continuously. Make regular noise by tapping on a pipe or wall when possible.\n'
+              '4. If your phone works, call 112 and share your location.',
+          'source': 'Emergency Search and Rescue Guidance',
+          'isEmergency': true,
+        };
+      }
+      if (lower.contains('water') ||
+          lower.contains('food') ||
+          lower.contains('supply') ||
+          lower.contains('shelter') ||
+          lower.contains('assembly') ||
+          lower.contains('tent') ||
+          lower.contains('where')) {
+        return {
+          'text':
+              '⛺ There are ${areas.length} registered relief and assembly areas in the current system. '
+              'Open the Disaster Map to view available locations, services, supplies, and routes. '
+              'Confirm current conditions with local authorities before traveling.',
+          'source': 'AFAD & Crisis Center Live Database',
+          'isEmergency': false,
+        };
+      }
+      if (lower.contains('earthquake') ||
+          lower.contains('building') ||
+          lower.contains('gas') ||
+          lower.contains('elevator') ||
+          lower.contains('aftershock')) {
+        return {
+          'text':
+              '⚠️ AFTER AN EARTHQUAKE\n\n'
+              '1. Leave damaged buildings carefully and stay clear of structures that may collapse.\n'
+              '2. Do not use elevators.\n'
+              '3. If you smell gas, do not use flames or electrical switches; move away and contact emergency services.\n'
+              '4. Keep phone lines available for emergencies and follow instructions from local authorities.',
+          'source': 'Disaster Safety Guidance',
+          'isEmergency': false,
+        };
+      }
+      if (lower.contains('report') ||
+          lower.contains('status') ||
+          lower.contains('briefing') ||
+          lower.contains('crisis')) {
+        return {
+          'text':
+              '📊 DISASTER RESPONSE STATUS\n\n'
+              '• The system currently lists ${areas.length} relief areas.\n'
+              '• Check the Disaster Map for registered locations, services, and reported supplies.\n'
+              '• Conditions may change; follow current instructions from local authorities.',
+          'source': 'Meta Llama 3 • Crisis Center Status',
+          'isEmergency': false,
+        };
+      }
+      return {
+        'text':
+            'I checked your question against the disaster-response guidance. '
+            'Your safety comes first. The system currently lists ${areas.length} relief areas. '
+            'For urgent medical help, entrapment, or rescue, call 112 using the emergency button.',
+        'source': 'Meta Llama 3 • Disaster Information Base',
+        'isEmergency': false,
+      };
+    }
 
     // 1. Selamlama & Tanışma
     if (lower == 'selam' ||
@@ -337,11 +555,15 @@ JSON Şeması:
         lower.contains('nereye') ||
         lower.contains('park') ||
         lower.contains('stadyum')) {
-      final topAreas = areas.take(4).map((a) {
-        final stockSummary =
-            a.stock.entries.map((e) => '${e.key}: ${e.value}').join(', ');
-        return '• ${a.name}\n  📍 Adres: ${a.address}\n  👥 Boş Kapasite: ${a.availableSpots} kişi\n  📦 Stok Durumu: $stockSummary';
-      }).join('\n\n');
+      final topAreas = areas
+          .take(4)
+          .map((a) {
+            final stockSummary = a.stock.entries
+                .map((e) => '${e.key}: ${e.value}')
+                .join(', ');
+            return '• ${a.name}\n  📍 Adres: ${a.address}\n  👥 Boş Kapasite: ${a.availableSpots} kişi\n  📦 Stok Durumu: $stockSummary';
+          })
+          .join('\n\n');
 
       return {
         'text':
